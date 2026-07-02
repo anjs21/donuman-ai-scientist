@@ -64,6 +64,11 @@ def build_or_load_surfaces(args, sb, calc):
             n_bulk=args.n_bulk,
             target_accepted=args.target_accepted,
             apply_gate=not args.no_gate,
+            supercell=tuple(args.supercell),
+            use_cache=not args.no_cache,
+            cache_dir=args.cache_dir,
+            use_published=args.use_published,
+            literature_dir=args.literature_dir,
         )
         surfaces[material] = slabs
         from ase.io import write
@@ -105,6 +110,17 @@ def main():
     ap.add_argument("--n-bulk", type=int, default=1)
     ap.add_argument("--target-accepted", type=int, default=None)
     ap.add_argument("--no-gate", action="store_true")
+    ap.add_argument("--no-cache", action="store_true",
+                    help="Disable bulk caching")
+    ap.add_argument("--cache-dir", default=None,
+                    help="Directory for cached bulk structures")
+    ap.add_argument("--use-published", action="store_true",
+                    help="Try to load published amorphous bulks")
+    ap.add_argument("--literature-dir", default=None,
+                    help="Directory containing published bulk structures")
+    ap.add_argument("--supercell", type=int, nargs=3, default=[2, 2, 2],
+                    metavar=("A", "B", "C"),
+                    help="Crystal supercell size (default: 2 2 2)")
     ap.add_argument("--use-existing", nargs="+", default=None,
                     help="glob pattern(s) of existing .xyz surfaces to reuse")
     ap.add_argument("--reagents", nargs="+", default=None,
