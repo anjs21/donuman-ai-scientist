@@ -1,0 +1,32 @@
+=== Job started at: Thu Jul  2 19:46:19 CEST 2026 ===
+=== Loading modules on compute node ===
+Loading python/3.11.7
+  Loading requirement: bzip2/1.0.8-ib3znej libmd/1.0.4-2km2lxx
+    libbsd/0.12.1-oocs6an expat/2.6.2-p2t4wry ncurses/6.5-svfl57u
+    readline/8.2-zeda6mx gdbm/1.23-wiol7vk libiconv/1.17-nhc3mhm
+    xz/5.4.6-xxxg42c zlib-ng/2.1.6-jkgunjc libxml2/2.10.3-zbbe7lm
+    pigz/2.8-5bwzpml zstd/1.5.6-uq5yyux tar/1.34-jgektnv gettext/0.22.5-hsxgafg
+    libffi/3.4.6-4vs4jpp libxcrypt/4.4.35-7om46b5 sqlite/3.43.2-4kl5mnp
+    util-linux-uuid/2.38.1-5achpds
+=== Activating virtual environment ===
+=== GPU Information ===
+CUDA available: True
+Device Name: NVIDIA A100-SXM-64GB
+=== Running pipeline in test mode ===
+==================================================================
+AS-ALD in-silico co-scientist — end-to-end pipeline
+==================================================================
+
+[calc] loading MLIP...
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+Using model under Academic Software License (ASL) license, see https://github.com/gabor1/ASL 
+ To use this model you accept the terms of the license.
+Using Materials Project MACE for MACECalculator with /leonardo/home/userexternal/asathyan/.cache/mace/maceomat0mediummodel
+Using float32 for MACECalculator, which is faster but less accurate. Recommended for MD. Use float64 for geometry optimization.
+[calc] MACE-MP-0 loaded on cuda (dtype=float32)
+[protocol] TEST mode (ultra-short MD; code-path validation only)
+
+[Phase 1] Building SiO2 surfaces (test mode)...
+    [cache] loaded bulk ← bulk_cache/SiO2_bulk_3dcca10c3b86bbb2.xyz (72 atoms)
+      [passivation] resolved close contacts in 3 sweeps
+    anneal + relax (84 atoms)...

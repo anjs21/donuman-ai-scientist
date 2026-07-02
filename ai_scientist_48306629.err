@@ -1,0 +1,34 @@
+/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/e3nn/o3/_wigner.py:10: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  _Jd, _W3j_flat, _W3j_indices = torch.load(os.path.join(os.path.dirname(__file__), 'constants.pt'))
+/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/mace/calculators/mace.py:226: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  torch.load(f=model_path, map_location=device)
+WARNING:root:Default dtype float32 does not match model dtype float64, converting models to float32.
+/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/md/langevin.py:102: FutureWarning: The implementation of `fixcm=True` in `Langevin` does not strictly sample the correct NVT distributions. The deviations are typically small for large systems but can be more pronounced for small systems. Use `fixcm=False` together with `ase.constraints.FixCom`. `fixcm` is deprecated since ASE 3.28.0 and will be removed in a future release.
+  warnings.warn(msg, FutureWarning)
+Traceback (most recent call last):
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/run_pipeline.py", line 263, in <module>
+    main()
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/run_pipeline.py", line 156, in main
+    surfaces = build_or_load_surfaces(args, sb, calc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/run_pipeline.py", line 77, in build_or_load_surfaces
+    write(path, s)
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/io/formats.py", line 713, in write
+    return _write(filename, fd, format, io, images,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/parallel.py", line 269, in new_func
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/io/formats.py", line 749, in _write
+    return io.write(fd, images, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/io/formats.py", line 176, in _write_wrapper
+    return function(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/utils/__init__.py", line 600, in iofunc
+    obj = func(fd, *args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/leonardo/home/userexternal/asathyan/donuman-ai-scientist/venv/lib/python3.11/site-packages/ase/io/extxyz.py", line 950, in write_xyz
+    data[column + str(c)] = value[:, c]
+    ~~~~^^^^^^^^^^^^^^^^^
+ValueError: could not broadcast input array from shape (173,) into shape (177,)

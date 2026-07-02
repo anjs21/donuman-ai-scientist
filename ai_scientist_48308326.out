@@ -1,0 +1,321 @@
+=== Job started at: Thu Jul  2 19:23:14 CEST 2026 ===
+=== Loading modules on compute node ===
+Loading python/3.11.7
+  Loading requirement: bzip2/1.0.8-ib3znej libmd/1.0.4-2km2lxx
+    libbsd/0.12.1-oocs6an expat/2.6.2-p2t4wry ncurses/6.5-svfl57u
+    readline/8.2-zeda6mx gdbm/1.23-wiol7vk libiconv/1.17-nhc3mhm
+    xz/5.4.6-xxxg42c zlib-ng/2.1.6-jkgunjc libxml2/2.10.3-zbbe7lm
+    pigz/2.8-5bwzpml zstd/1.5.6-uq5yyux tar/1.34-jgektnv gettext/0.22.5-hsxgafg
+    libffi/3.4.6-4vs4jpp libxcrypt/4.4.35-7om46b5 sqlite/3.43.2-4kl5mnp
+    util-linux-uuid/2.38.1-5achpds
+=== Activating virtual environment ===
+=== GPU Information ===
+CUDA available: True
+Device Name: NVIDIA A100-SXM-64GB
+=== Running pipeline in test mode ===
+==================================================================
+AS-ALD in-silico co-scientist — end-to-end pipeline
+==================================================================
+
+[calc] loading MLIP...
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+Using model under Academic Software License (ASL) license, see https://github.com/gabor1/ASL 
+ To use this model you accept the terms of the license.
+Using Materials Project MACE for MACECalculator with /leonardo/home/userexternal/asathyan/.cache/mace/maceomat0mediummodel
+Using float32 for MACECalculator, which is faster but less accurate. Recommended for MD. Use float64 for geometry optimization.
+[calc] MACE-MP-0 loaded on cuda (dtype=float32)
+[protocol] TEST mode (ultra-short MD; code-path validation only)
+
+[Phase 1] Building SiO2 surfaces (test mode)...
+    [cache] loaded bulk ← bulk_cache/SiO2_bulk_3dcca10c3b86bbb2.xyz (72 atoms)
+      [passivation] resolved close contacts in 3 sweeps
+    anneal + relax (84 atoms)...
+      [pre-relax] step 25: fmax=0.651 eV/A (7s)
+      [pre-relax] done: fmax=0.196 eV/A, converged (7s)
+      [anneal] starting 300 steps @ 1000K (84 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/300  T=   730K  Epot=   -607.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/300  T=   384K  Epot=   -604.5eV   38.2 steps/s  ETA     7s  (elapsed    1s)
+        [anneal] step   100/300  T=   487K  Epot=   -604.3eV   37.9 steps/s  ETA     5s  (elapsed    3s)
+        [anneal] step   150/300  T=   480K  Epot=   -603.7eV   38.1 steps/s  ETA     4s  (elapsed    4s)
+        [anneal] step   200/300  T=   525K  Epot=   -604.0eV   38.2 steps/s  ETA     3s  (elapsed    5s)
+        [anneal] step   250/300  T=   593K  Epot=   -603.6eV   38.2 steps/s  ETA     1s  (elapsed    7s)
+        [anneal] step   300/300  T=   641K  Epot=   -603.4eV   38.2 steps/s  ETA     0s  (elapsed    8s)
+      [anneal] 1000K 0.6ps (300 steps) done in 8s
+      [quench] 1000K -> 0K over 15 stages (0.6ps total)
+      [quench 1/15] starting 20 steps @ 933K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/20  T=   641K  Epot=   -603.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 1/15] 933K 0.04ps (20 steps) done in 1s
+      [quench 2/15] starting 20 steps @ 867K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/20  T=   767K  Epot=   -604.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 2/15] 867K 0.04ps (20 steps) done in 1s
+      [quench 3/15] starting 20 steps @ 800K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/20  T=   743K  Epot=   -604.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 3/15] 800K 0.04ps (20 steps) done in 1s
+      [quench 4/15] starting 20 steps @ 733K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/20  T=   735K  Epot=   -604.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 4/15] 733K 0.04ps (20 steps) done in 1s
+      [quench 5/15] starting 20 steps @ 667K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/20  T=   767K  Epot=   -604.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 5/15] 667K 0.04ps (20 steps) done in 1s
+      [quench 6/15] starting 20 steps @ 600K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/20  T=   750K  Epot=   -604.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 6/15] 600K 0.04ps (20 steps) done in 1s
+      [quench 7/15] starting 20 steps @ 533K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/20  T=   705K  Epot=   -603.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 7/15] 533K 0.04ps (20 steps) done in 1s
+      [quench 8/15] starting 20 steps @ 467K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/20  T=  1007K  Epot=   -603.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 8/15] 467K 0.04ps (20 steps) done in 1s
+      [quench 9/15] starting 20 steps @ 400K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/20  T=   885K  Epot=   -602.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 9/15] 400K 0.04ps (20 steps) done in 1s
+      [quench 10/15] starting 20 steps @ 333K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/20  T=   827K  Epot=   -602.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 10/15] 333K 0.04ps (20 steps) done in 1s
+      [quench 11/15] starting 20 steps @ 267K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/20  T=   846K  Epot=   -602.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 11/15] 267K 0.04ps (20 steps) done in 1s
+      [quench 12/15] starting 20 steps @ 200K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/20  T=   863K  Epot=   -602.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 12/15] 200K 0.04ps (20 steps) done in 1s
+      [quench 13/15] starting 20 steps @ 133K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/20  T=   801K  Epot=   -602.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 13/15] 133K 0.04ps (20 steps) done in 1s
+      [quench 14/15] starting 20 steps @ 67K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/20  T=   861K  Epot=   -603.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 14/15] 67K 0.04ps (20 steps) done in 1s
+      [quench 15/15] starting 20 steps @ 1K (84 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/20  T=   767K  Epot=   -602.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 15/15] 1K 0.04ps (20 steps) done in 1s
+      [surface-relax] step 25: fmax=0.172 eV/A (1s)
+      [surface-relax] step 50: fmax=0.184 eV/A (2s)
+      [surface-relax] step 75: fmax=0.102 eV/A (2s)
+      [surface-relax] step 100: fmax=0.098 eV/A (3s)
+      [surface-relax] step 125: fmax=0.076 eV/A (4s)
+      [surface-relax] done: fmax=0.045 eV/A, converged (4s)
+      [passivation] resolved close contacts in 1 sweeps
+    anneal + relax (85 atoms)...
+      [pre-relax] step 25: fmax=1.219 eV/A (1s)
+      [pre-relax] step 50: fmax=0.268 eV/A (2s)
+      [pre-relax] done: fmax=0.389 eV/A, stopped (fmax=0.3889453113079071) (2s)
+      [anneal] starting 300 steps @ 1000K (85 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/300  T=   902K  Epot=   -619.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/300  T=   513K  Epot=   -614.6eV   39.1 steps/s  ETA     6s  (elapsed    1s)
+        [anneal] step   100/300  T=   582K  Epot=   -615.0eV   39.1 steps/s  ETA     5s  (elapsed    3s)
+        [anneal] step   150/300  T=   610K  Epot=   -614.7eV   39.1 steps/s  ETA     4s  (elapsed    4s)
+        [anneal] step   200/300  T=   628K  Epot=   -614.4eV   38.5 steps/s  ETA     3s  (elapsed    5s)
+        [anneal] step   250/300  T=   660K  Epot=   -614.4eV   38.6 steps/s  ETA     1s  (elapsed    6s)
+        [anneal] step   300/300  T=   715K  Epot=   -613.6eV   39.0 steps/s  ETA     0s  (elapsed    8s)
+      [anneal] 1000K 0.6ps (300 steps) done in 8s
+      [quench] 1000K -> 0K over 15 stages (0.6ps total)
+      [quench 1/15] starting 20 steps @ 933K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/20  T=   715K  Epot=   -613.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 1/15] 933K 0.04ps (20 steps) done in 1s
+      [quench 2/15] starting 20 steps @ 867K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/20  T=   648K  Epot=   -613.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 2/15] 867K 0.04ps (20 steps) done in 1s
+      [quench 3/15] starting 20 steps @ 800K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/20  T=   711K  Epot=   -613.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 3/15] 800K 0.04ps (20 steps) done in 1s
+      [quench 4/15] starting 20 steps @ 733K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/20  T=   655K  Epot=   -613.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 4/15] 733K 0.04ps (20 steps) done in 1s
+      [quench 5/15] starting 20 steps @ 667K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/20  T=   773K  Epot=   -613.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 5/15] 667K 0.04ps (20 steps) done in 1s
+      [quench 6/15] starting 20 steps @ 600K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/20  T=   712K  Epot=   -613.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 6/15] 600K 0.04ps (20 steps) done in 1s
+      [quench 7/15] starting 20 steps @ 533K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/20  T=   812K  Epot=   -614.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 7/15] 533K 0.04ps (20 steps) done in 1s
+      [quench 8/15] starting 20 steps @ 467K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/20  T=   919K  Epot=   -613.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 8/15] 467K 0.04ps (20 steps) done in 1s
+      [quench 9/15] starting 20 steps @ 400K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/20  T=   876K  Epot=   -613.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 9/15] 400K 0.04ps (20 steps) done in 1s
+      [quench 10/15] starting 20 steps @ 333K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/20  T=   814K  Epot=   -612.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 10/15] 333K 0.04ps (20 steps) done in 1s
+      [quench 11/15] starting 20 steps @ 267K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/20  T=   802K  Epot=   -613.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 11/15] 267K 0.04ps (20 steps) done in 1s
+      [quench 12/15] starting 20 steps @ 200K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/20  T=   745K  Epot=   -612.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 12/15] 200K 0.04ps (20 steps) done in 1s
+      [quench 13/15] starting 20 steps @ 133K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/20  T=   793K  Epot=   -613.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 13/15] 133K 0.04ps (20 steps) done in 1s
+      [quench 14/15] starting 20 steps @ 67K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/20  T=   719K  Epot=   -613.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 14/15] 67K 0.04ps (20 steps) done in 1s
+      [quench 15/15] starting 20 steps @ 1K (85 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/20  T=   797K  Epot=   -614.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 15/15] 1K 0.04ps (20 steps) done in 1s
+      [surface-relax] step 25: fmax=0.219 eV/A (1s)
+      [surface-relax] step 50: fmax=0.147 eV/A (1s)
+      [surface-relax] step 75: fmax=0.060 eV/A (2s)
+      [surface-relax] done: fmax=0.048 eV/A, converged (3s)
+[SiO2] bulk 0 term 0 (1500.0 K/ps): {'O_bridge': np.float64(5.98), 'OH': np.float64(3.59)} | strained=0 R=1.11 | REJECT (OH density 3.59 outside [4.92,7.46] nm^-2)
+[SiO2] bulk 0 term 1 (1500.0 K/ps): {'O_bridge': np.float64(6.58), 'OH': np.float64(4.19)} | strained=0 R=0.96 | REJECT (OH density 4.19 outside [4.92,7.46] nm^-2)
+  saved 0 SiO2 surface(s)
+
+[Phase 1] Building SiNx surfaces (test mode)...
+    [cache] loaded bulk ← bulk_cache/SiNx_bulk_3e2553893ebea410.xyz (104 atoms)
+      [passivation] resolved close contacts in 2 sweeps
+    anneal + relax (177 atoms)...
+      [pre-relax] step 25: fmax=4.537 eV/A (1s)
+      [pre-relax] step 50: fmax=3.113 eV/A (3s)
+      [pre-relax] done: fmax=0.335 eV/A, stopped (fmax=0.3348178565502167) (3s)
+      [anneal] starting 300 steps @ 1000K (177 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/300  T=   542K  Epot=  -1109.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/300  T=   396K  Epot=  -1105.1eV   30.6 steps/s  ETA     8s  (elapsed    2s)
+        [anneal] step   100/300  T=   533K  Epot=  -1105.2eV   30.5 steps/s  ETA     7s  (elapsed    3s)
+        [anneal] step   150/300  T=   612K  Epot=  -1105.1eV   30.6 steps/s  ETA     5s  (elapsed    5s)
+        [anneal] step   200/300  T=   653K  Epot=  -1105.9eV   30.7 steps/s  ETA     3s  (elapsed    7s)
+        [anneal] step   250/300  T=   672K  Epot=  -1104.9eV   30.5 steps/s  ETA     2s  (elapsed    8s)
+        [anneal] step   300/300  T=   842K  Epot=  -1106.4eV   30.7 steps/s  ETA     0s  (elapsed   10s)
+      [anneal] 1000K 0.6ps (300 steps) done in 10s
+      [quench] 1000K -> 0K over 15 stages (0.6ps total)
+      [quench 1/15] starting 20 steps @ 933K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/20  T=   842K  Epot=  -1106.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 1/15] 933K 0.04ps (20 steps) done in 1s
+      [quench 2/15] starting 20 steps @ 867K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/20  T=   764K  Epot=  -1105.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 2/15] 867K 0.04ps (20 steps) done in 1s
+      [quench 3/15] starting 20 steps @ 800K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/20  T=   693K  Epot=  -1105.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 3/15] 800K 0.04ps (20 steps) done in 1s
+      [quench 4/15] starting 20 steps @ 733K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/20  T=   783K  Epot=  -1105.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 4/15] 733K 0.04ps (20 steps) done in 1s
+      [quench 5/15] starting 20 steps @ 667K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/20  T=   859K  Epot=  -1106.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 5/15] 667K 0.04ps (20 steps) done in 1s
+      [quench 6/15] starting 20 steps @ 600K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/20  T=   708K  Epot=  -1104.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 6/15] 600K 0.04ps (20 steps) done in 1s
+      [quench 7/15] starting 20 steps @ 533K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/20  T=   800K  Epot=  -1106.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 7/15] 533K 0.04ps (20 steps) done in 1s
+      [quench 8/15] starting 20 steps @ 467K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/20  T=  1618K  Epot=  -1106.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 8/15] 467K 0.04ps (20 steps) done in 1s
+      [quench 9/15] starting 20 steps @ 400K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/20  T=  1110K  Epot=  -1098.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 9/15] 400K 0.04ps (20 steps) done in 1s
+      [quench 10/15] starting 20 steps @ 333K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/20  T=  1186K  Epot=  -1100.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 10/15] 333K 0.04ps (20 steps) done in 1s
+      [quench 11/15] starting 20 steps @ 267K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/20  T=  1209K  Epot=  -1101.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 11/15] 267K 0.04ps (20 steps) done in 1s
+      [quench 12/15] starting 20 steps @ 200K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/20  T=  1168K  Epot=  -1102.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 12/15] 200K 0.04ps (20 steps) done in 1s
+      [quench 13/15] starting 20 steps @ 133K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/20  T=  1150K  Epot=  -1104.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 13/15] 133K 0.04ps (20 steps) done in 1s
+      [quench 14/15] starting 20 steps @ 67K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/20  T=  1064K  Epot=  -1104.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 14/15] 67K 0.04ps (20 steps) done in 1s
+      [quench 15/15] starting 20 steps @ 1K (177 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/20  T=  1007K  Epot=  -1104.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 15/15] 1K 0.04ps (20 steps) done in 1s
+      [surface-relax] step 25: fmax=0.549 eV/A (1s)
+      [surface-relax] step 50: fmax=0.276 eV/A (2s)
+      [surface-relax] step 75: fmax=0.114 eV/A (3s)
+      [surface-relax] step 100: fmax=0.445 eV/A (5s)
+      [surface-relax] step 125: fmax=0.079 eV/A (6s)
+      [surface-relax] done: fmax=0.050 eV/A, converged (6s)
+      [passivation] resolved close contacts in 2 sweeps
+    anneal + relax (173 atoms)...
+      [pre-relax] step 25: fmax=1.823 eV/A (1s)
+      [pre-relax] step 50: fmax=1.015 eV/A (2s)
+      [pre-relax] done: fmax=0.439 eV/A, stopped (fmax=0.43910127878189087) (3s)
+      [anneal] starting 300 steps @ 1000K (173 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/300  T=   539K  Epot=  -1092.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/300  T=   460K  Epot=  -1089.2eV   30.3 steps/s  ETA     8s  (elapsed    2s)
+        [anneal] step   100/300  T=   567K  Epot=  -1089.7eV   30.3 steps/s  ETA     7s  (elapsed    3s)
+        [anneal] step   150/300  T=   603K  Epot=  -1089.0eV   30.7 steps/s  ETA     5s  (elapsed    5s)
+        [anneal] step   200/300  T=   587K  Epot=  -1086.9eV   30.7 steps/s  ETA     3s  (elapsed    7s)
+        [anneal] step   250/300  T=   622K  Epot=  -1086.3eV   31.1 steps/s  ETA     2s  (elapsed    8s)
+        [anneal] step   300/300  T=   673K  Epot=  -1086.8eV   31.1 steps/s  ETA     0s  (elapsed   10s)
+      [anneal] 1000K 0.6ps (300 steps) done in 10s
+      [quench] 1000K -> 0K over 15 stages (0.6ps total)
+      [quench 1/15] starting 20 steps @ 933K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/20  T=   673K  Epot=  -1086.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 1/15] 933K 0.04ps (20 steps) done in 1s
+      [quench 2/15] starting 20 steps @ 867K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/20  T=   689K  Epot=  -1086.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 2/15] 867K 0.04ps (20 steps) done in 1s
+      [quench 3/15] starting 20 steps @ 800K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/20  T=   693K  Epot=  -1086.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 3/15] 800K 0.04ps (20 steps) done in 1s
+      [quench 4/15] starting 20 steps @ 733K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/20  T=   765K  Epot=  -1086.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 4/15] 733K 0.04ps (20 steps) done in 1s
+      [quench 5/15] starting 20 steps @ 667K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/20  T=   709K  Epot=  -1085.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 5/15] 667K 0.04ps (20 steps) done in 1s
+      [quench 6/15] starting 20 steps @ 600K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/20  T=   764K  Epot=  -1086.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 6/15] 600K 0.04ps (20 steps) done in 1s
+      [quench 7/15] starting 20 steps @ 533K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/20  T=   784K  Epot=  -1086.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 7/15] 533K 0.04ps (20 steps) done in 1s
+      [quench 8/15] starting 20 steps @ 467K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/20  T=  1622K  Epot=  -1085.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 8/15] 467K 0.04ps (20 steps) done in 1s
+      [quench 9/15] starting 20 steps @ 400K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/20  T=  1243K  Epot=  -1080.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 9/15] 400K 0.04ps (20 steps) done in 1s
+      [quench 10/15] starting 20 steps @ 333K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/20  T=  1180K  Epot=  -1080.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 10/15] 333K 0.04ps (20 steps) done in 1s
+      [quench 11/15] starting 20 steps @ 267K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/20  T=  1075K  Epot=  -1080.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 11/15] 267K 0.04ps (20 steps) done in 1s
+      [quench 12/15] starting 20 steps @ 200K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/20  T=  1264K  Epot=  -1084.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 12/15] 200K 0.04ps (20 steps) done in 1s
+      [quench 13/15] starting 20 steps @ 133K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/20  T=  1030K  Epot=  -1081.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 13/15] 133K 0.04ps (20 steps) done in 1s
+      [quench 14/15] starting 20 steps @ 67K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/20  T=  1039K  Epot=  -1082.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 14/15] 67K 0.04ps (20 steps) done in 1s
+      [quench 15/15] starting 20 steps @ 1K (173 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/20  T=   919K  Epot=  -1081.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+      [quench 15/15] 1K 0.04ps (20 steps) done in 1s
+      [surface-relax] step 25: fmax=0.432 eV/A (1s)
+      [surface-relax] step 50: fmax=0.688 eV/A (2s)
+      [surface-relax] done: fmax=0.050 eV/A, converged (3s)
+[SiNx] bulk 0 term 0 (2000.0 K/ps): {'NH_bridge': np.float64(3.49), 'O_bridge': np.float64(0.75), 'NH2': np.float64(2.75)} | strained=1 R=1.29 | ACCEPT
+[SiNx] bulk 0 term 1 (2000.0 K/ps): {'NH_bridge': np.float64(3.74), 'O_bridge': np.float64(1.5), 'NH2': np.float64(2.75)} | strained=0 R=1.24 | ACCEPT
+  saved 2 SiNx surface(s)
+
+[Phase 0] Structural validation
+  [Phase 0] SiNx[0]: area=7.62 nm^2, structure off-target (3/4)
+  [Phase 0] SiNx[1]: area=7.50 nm^2, structure off-target (1/4)
+
+[Phase 2] Energetics screen
+  [energetics] DMATMS         on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] DMATMS         on SiNx : dE_mean=+2.93 eV  dE_min=-1.12 eV (2 surf)
+  [energetics] TMCS           on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] TMCS           on SiNx : dE_mean=+1.01 eV  dE_min=+0.56 eV (2 surf)
+  [energetics] NH3            on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] NH3            on SiNx : dE_mean=+0.45 eV  dE_min=-1.20 eV (2 surf)
+  [energetics] dimethylamine  on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] dimethylamine  on SiNx : dE_mean=-0.68 eV  dE_min=-1.75 eV (2 surf)
+  [energetics] pyridine       on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] pyridine       on SiNx : dE_mean=+2.05 eV  dE_min=-3.03 eV (2 surf)
+  [energetics] BDMAS          on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] BDMAS          on SiNx : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] SiCl4          on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] SiCl4          on SiNx : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] H2O            on SiO2 : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+  [energetics] H2O            on SiNx : dE_mean=  n/a eV  dE_min=+nan eV (0 surf)
+
+[Phase 3] Selection agent

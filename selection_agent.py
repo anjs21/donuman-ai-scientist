@@ -64,7 +64,7 @@ def load_config(md_path="selection_criteria.md"):
     """Parse the ```selection-config block from the criteria markdown."""
     cfg = dict(DEFAULT_CONFIG)
     try:
-        with open(md_path) as fh:
+        with open(md_path, encoding="utf-8") as fh:
             text = fh.read()
     except FileNotFoundError:
         print(f"  [agent] {md_path} not found; using built-in defaults.")
@@ -252,10 +252,11 @@ def explain(selection):
 
     lines.append("")
     if rec["inhibitor"]:
+        gs_str = "n/a" if rec["inhibitor_dE_GS"] is None else f"{rec['inhibitor_dE_GS']:+.2f} eV"
+        ngs_str = "n/a" if rec["inhibitor_dE_NGS"] is None else f"{rec['inhibitor_dE_NGS']:+.2f} eV"
+        contrast_str = "n/a" if rec["inhibitor_contrast"] is None else f"{rec['inhibitor_contrast']:+.2f} eV"
         lines.append(f"--> Recommended inhibitor: {rec['inhibitor']}  "
-                     f"(dE_NGS={rec['inhibitor_dE_NGS']:+.2f} eV, "
-                     f"dE_GS={rec['inhibitor_dE_GS']:+.2f} eV, "
-                     f"contrast={rec['inhibitor_contrast']:+.2f} eV)")
+                     f"(dE_NGS={ngs_str}, dE_GS={gs_str}, contrast={contrast_str})")
         r = lib.LIBRARY[rec["inhibitor"]]
         lines.append(f"    rationale: binds the {NONGROWTH_SURFACE} sites "
                      f"{r.targets} and is comparatively inert on {GROWTH_SURFACE}, "

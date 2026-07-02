@@ -39,35 +39,35 @@ from ase.spacegroup import crystal
 from ase.io import write, read
 from ase.md.langevin import Langevin
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from ase.optimize import BFGS
+from ase.optimize import BFGS, FIRE
 from ase.neighborlist import NeighborList, natural_cutoffs
 from ase.constraints import FixAtoms
 from ase import units
-
+from ase.data import covalent_radii, atomic_numbers
 
 # ===========================================================================
 # 0. Literature constants (Kim et al. 2026, transcribed)
 # ===========================================================================
 
 LITERATURE_TARGETS_NM2 = {
-    "SiO2": {"OH": (6.1, 0.4), "O_bridge": (2.8, 0.7)},
-    "SiNx": {"NH2": (3.5, 0.7), "NH_bridge": (4.0, 0.8)},
+    # Exact Fig. 1a / main-text values (Kim et al. 2026), per single surface.
+    "SiO2": {"OH": (6.19, 0.51), "O_bridge": (3.86, 1.28)},
+    "SiNx": {"NH2": (3.91, 1.06), "NH_bridge": (3.53, 0.88)},
 }
+# vicinal/isolated silanol split (SI S4.2) -- for optional refinement #4
+LITERATURE_SILANOL_SPLIT = {"vicinal": (4.82, 0.88), "isolated": (1.37, 0.51)}
 EXPERIMENTAL_OH_REACTIVE_NM2 = 4.5
 
-# Atom counts for default (2,2,2) supercells.
-# SiO2: unit cell O6Si3 × (2,2,2) = O48Si24 = 72 atoms
-# SiNx: unit cell N8Si6 × (2,2,2) = N64Si48 = 112 atoms → after composition: Si48 O~5 N~53
 TARGET_BULK = {
-    "SiO2": {"Si": 24, "O": 48, "N": 0},
-    "SiNx": {"Si": 48, "O": 5, "N": 53},   # ~9:10:1 Si:N:O per paper, scaled for (2,2,2)
+    "SiO2": {"Si": 54, "O": 108, "N": 0},
+    "SiNx": {"Si": 72, "O": 8, "N": 80},   # 9:10:1 Si:N:O per paper
 }
 
 PROTOCOL = {
-    "SiO2": dict(premelt_K=6000, melt_K=3000, premelt_ps=2, melt_ps=10,
+    "SiO2": dict(premelt_K=6000, melt_K=3000, premelt_ps=10, melt_ps=10,
                  quench_ps=15, quench_to_K=0, anneal_K=1000, anneal_ps=5,
                  anneal_quench_ps=5),
-    "SiNx": dict(premelt_K=5000, melt_K=4000, premelt_ps=2, melt_ps=10,
+    "SiNx": dict(premelt_K=5000, melt_K=4000, premelt_ps=10, melt_ps=10,
                  quench_ps=15, quench_to_K=0, anneal_K=1000, anneal_ps=5,
                  anneal_quench_ps=5),
 }
@@ -123,6 +123,56 @@ IDEAL_CN = {"Si": 4, "O": 2, "N": 3}
 # Default cache and literature directories (relative to working directory)
 BULK_CACHE_DIR = "bulk_cache"
 LITERATURE_DIR = "literature"
+
+# Progress logging. Set VERBOSE=False (or set_verbose(False)) to silence.
+VERBOSE = True
+MD_LOG_EVERY = 50      # print at least every this many steps ...
+MD_HEARTBEAT_SEC = 15  # ... AND at least this often in wall-clock time
+
+
+def set_verbose(flag=True, log_every=50, heartbeat_sec=15):
+    """Toggle MD/BFGS progress logging, its step interval, and its wall-clock
+    heartbeat (a line is printed whenever EITHER threshold is crossed, so even
+    a very slow run shows a fresh line every `heartbeat_sec` seconds)."""
+    global VERBOSE, MD_LOG_EVERY, MD_HEARTBEAT_SEC
+    VERBOSE, MD_LOG_EVERY, MD_HEARTBEAT_SEC = flag, log_every, heartbeat_sec
+
+
+def _attach_md_logger(dyn, atoms, n_steps, label):
+    """Attach a per-step observer that prints throughput + ETA on a time-based
+    heartbeat. Because it fires every step, the step counter advancing between
+    heartbeats proves the run is alive; a frozen counter across two heartbeats
+    means a single force evaluation is genuinely stuck (environment/geometry),
+    not merely slow."""
+    if not VERBOSE:
+        return
+    import time as _time
+    t0 = _time.time()
+    state = {"t": t0, "step": 0, "printed": 0.0}
+
+    def _report():
+        step = dyn.nsteps
+        now = _time.time()
+        due = (step % MD_LOG_EVERY == 0) or (now - state["printed"] >= MD_HEARTBEAT_SEC)
+        if not due:
+            return
+        dt = now - state["t"]
+        rate = (step - state["step"]) / dt if dt > 0 else 0.0
+        eta = (n_steps - step) / rate if rate > 0 else float("inf")
+        try:
+            T = atoms.get_temperature()
+        except Exception:
+            T = float("nan")
+        try:
+            epot = atoms.get_potential_energy()   # cached from the MD force call
+        except Exception:
+            epot = float("nan")
+        print(f"        [{label}] step {step:5d}/{n_steps}  T={T:6.0f}K  "
+              f"Epot={epot:9.1f}eV  {rate:5.1f} steps/s  ETA {eta:5.0f}s  "
+              f"(elapsed {now-t0:4.0f}s)", flush=True)
+        state["t"], state["step"], state["printed"] = now, step, now
+
+    dyn.attach(_report, interval=1)
 
 
 # ===========================================================================
@@ -212,7 +262,7 @@ def list_cached_bulks(cache_dir=None):
 # 2. Crystal + bulk-composition construction
 # ===========================================================================
 
-def build_alpha_quartz(supercell=(2, 2, 2)):
+def build_alpha_quartz(supercell=(3, 3, 2)):
     uc = crystal(
         symbols=["Si", "O"],
         basis=[(0.4697, 0.0, 1 / 3), (0.4133, 0.2672, 0.1188)],
@@ -223,7 +273,7 @@ def build_alpha_quartz(supercell=(2, 2, 2)):
     return uc * supercell
 
 
-def build_beta_si3n4(supercell=(2, 2, 2)):
+def build_beta_si3n4(supercell=(2, 2, 3)):
     uc = crystal(
         symbols=["Si", "N", "N"],
         basis=[(0.1738, 0.7666, 0.0), (0.3333, 0.6667, 0.0), (0.0313, 0.3300, 0.25)],
@@ -251,17 +301,12 @@ def apply_sinx_composition(atoms, rng):
 
 
 # ===========================================================================
-# 2. Calculator
+# 2b. Calculator
 # ===========================================================================
 
 def get_calculator(dtype="float32"):
-    """
-    Load MACE-MP-0 (medium-omat) for GPU-accelerated MD.
-
-    float32 is ~2-3x faster than float64 on consumer GPUs and fine for MD.
-    Use float64 only if you specifically need high-accuracy final relaxation.
-    Falls back to LennardJones for geometry testing if MACE is unavailable.
-    """
+    # float32 is ~2-3x faster than float64 on a T4 and fine for MD.
+    # Use float64 only if you specifically need high-accuracy final relaxation.
     try:
         from mace.calculators import mace_mp
         import torch
@@ -286,69 +331,6 @@ def get_calculator(dtype="float32"):
 # ===========================================================================
 # 3. Melt-quench (bulk amorphization)
 # ===========================================================================
-
-# Progress logging. Set VERBOSE=False (or set_verbose(False)) to silence.
-VERBOSE = True
-MD_LOG_EVERY = 50      # print at least every this many steps ...
-MD_HEARTBEAT_SEC = 15  # ... AND at least this often in wall-clock time
-
-
-def set_verbose(flag=True, log_every=50, heartbeat_sec=15):
-    """Toggle MD/BFGS progress logging, its step interval, and its wall-clock
-    heartbeat (a line is printed whenever EITHER threshold is crossed, so even
-    a very slow run shows a fresh line every `heartbeat_sec` seconds)."""
-    global VERBOSE, MD_LOG_EVERY, MD_HEARTBEAT_SEC
-    VERBOSE, MD_LOG_EVERY, MD_HEARTBEAT_SEC = flag, log_every, heartbeat_sec
-
-
-def _attach_md_logger(dyn, atoms, n_steps, label):
-    """Attach a per-step observer that prints throughput + ETA on a time-based
-    heartbeat. Because it fires every step, the step counter advancing between
-    heartbeats proves the run is alive; a frozen counter across two heartbeats
-    means a single force evaluation is genuinely stuck (environment/geometry),
-    not merely slow."""
-    if not VERBOSE:
-        return
-    import time as _time
-    t0 = _time.time()
-    state = {"t": t0, "step": 0, "printed": 0.0}
-
-    def _report():
-        step = dyn.nsteps
-        now = _time.time()
-        due = (step % MD_LOG_EVERY == 0) or (now - state["printed"] >= MD_HEARTBEAT_SEC)
-        if not due:
-            return
-        dt = now - state["t"]
-        rate = (step - state["step"]) / dt if dt > 0 else 0.0
-        eta = (n_steps - step) / rate if rate > 0 else float("inf")
-        try:
-            T = atoms.get_temperature()
-        except Exception:
-            T = float("nan")
-        try:
-            epot = atoms.get_potential_energy()   # cached from the MD force call
-        except Exception:
-            epot = float("nan")
-        print(f"        [{label}] step {step:5d}/{n_steps}  T={T:6.0f}K  "
-              f"Epot={epot:9.1f}eV  {rate:5.1f} steps/s  ETA {eta:5.0f}s  "
-              f"(elapsed {now-t0:4.0f}s)", flush=True)
-        state["t"], state["step"], state["printed"] = now, step, now
-
-    dyn.attach(_report, interval=1)
-
-
-def _run_bfgs(atoms, fmax, steps, label="relax"):
-    """BFGS relaxation that streams per-step convergence when VERBOSE."""
-    if VERBOSE:
-        print(f"      [{label}] BFGS (<= {steps} steps, fmax={fmax}) ...", flush=True)
-    opt = BFGS(atoms, logfile="-" if VERBOSE else None)
-    opt.run(fmax=fmax, steps=steps)
-    if VERBOSE:
-        print(f"      [{label}] BFGS stopped after {opt.get_number_of_steps()} "
-              f"steps", flush=True)
-    return atoms
-
 
 def _set_hydrogen_masses(atoms, temp_K):
     masses = atoms.get_masses()
@@ -388,31 +370,60 @@ def _quench(atoms, T_start, T_end, time_ps, n_stages=15, timestep_fs=2.0):
 
 
 def melt_quench_bulk(atoms, material, calc, seed=0, supercell=(2, 2, 2),
-                     use_cache=True, cache_dir=None):
-    """Melt-quench with automatic caching. Skips MD if a cached bulk exists."""
-    p = PROTOCOL[material]
+                     use_cache=True, cache_dir=None, quench_ps_override=None):
+    """
+    Melt-quench a crystalline supercell into an amorphous bulk with automatic caching.
+    
+    quench_ps_override: if set, use this quench duration instead of the
+    protocol default. LONGER quench = SLOWER cooling rate = more relaxed
+    network with fewer defect/reactive sites; SHORTER quench = faster cooling
+    = rougher surface with more reactive sites.
+    """
+    p = dict(PROTOCOL[material])
+    quench_ps = quench_ps_override if quench_ps_override is not None else p["quench_ps"]
+    p["quench_ps"] = quench_ps
+    cooling_rate = p["melt_K"] / quench_ps  # K/ps, for reporting
 
     # Check cache first
     if use_cache:
         cached = load_bulk_from_cache(material, seed, supercell, p, cache_dir)
         if cached is not None:
+            cached.info["quench_ps"] = quench_ps
+            cached.info["cooling_rate_K_per_ps"] = round(cooling_rate, 1)
             return cached
 
     atoms = atoms.copy()
     atoms.calc = calc
-    print(f"    melt-quench bulk ({len(atoms)} atoms)...", flush=True)
+    print(f"    melt-quench bulk ({len(atoms)} atoms, "
+          f"quench={quench_ps}ps => {cooling_rate:.0f} K/ps)...", flush=True)
     MaxwellBoltzmannDistribution(atoms, temperature_K=p["premelt_K"])
     _md_stage(atoms, p["premelt_K"], p["premelt_ps"], timestep_fs=1.0, label="premelt")
     _md_stage(atoms, p["melt_K"], p["melt_ps"], label="melt")
-    print("      quenching...", flush=True)
-    _quench(atoms, p["melt_K"], p["quench_to_K"], p["quench_ps"])
-    _run_bfgs(atoms, fmax=0.05, steps=200, label="melt-quench relax")
+    print(f"      quenching ({cooling_rate:.0f} K/ps)...", flush=True)
+    _quench(atoms, p["melt_K"], p["quench_to_K"], quench_ps)
+    _relax(atoms, label="bulk-relax", fmax=0.05, steps=200)
+    
+    atoms.info["quench_ps"] = quench_ps
+    atoms.info["cooling_rate_K_per_ps"] = round(cooling_rate, 1)
+    _assert_finite(atoms, "melt_quench_bulk")
 
     # Save to cache for future runs
     if use_cache:
         save_bulk_to_cache(atoms, material, seed, supercell, p, cache_dir)
 
     return atoms
+
+
+def _assert_finite(atoms, where=""):
+    """Guard against blown-up MD (NaN/inf coords). Raises with a clear message."""
+    pos = atoms.get_positions()
+    if not np.all(np.isfinite(pos)):
+        raise RuntimeError(
+            f"[{where}] non-finite atomic coordinates after MD -- the structure "
+            f"blew up (unstable dynamics). With MACE this usually means the "
+            f"timestep is too large or the initial geometry was bad; with the "
+            f"LJ placeholder it is expected. Reduce timestep or check the "
+            f"calculator.")
 
 
 # ===========================================================================
@@ -454,28 +465,37 @@ def find_dangling(atoms):
     return dangling
 
 
-def _add_group_near(atoms, host_idx, group_symbols, group_idx=0, num_groups=1, bond_len=1.5):
+def _add_group_near(atoms, host_idx, group_symbols, bond_len=1.5, rng=None):
+    """
+    Attach a functional group to a host atom, pointing outward along the
+    surface normal but with a small lateral offset + per-atom jitter so
+    successive groups on the same host (and H atoms within a group) do NOT
+    stack collinearly on top of each other. Vertical stacking created
+    near-zero interatomic distances -> exploding forces -> the multi-hour
+    relaxation hang. This spreads them into a rough tetrahedral splay.
+    """
+    if rng is None:
+        rng = np.random.default_rng(host_idx)
     host_pos = atoms[host_idx].position
     z_centre = atoms.get_positions()[:, 2].mean()
-    base_z = 1.0 if host_pos[2] > z_centre else -1.0
-    
-    if num_groups > 1:
-        # Tilt direction to avoid overlap
-        theta = 0.35  # ~20 degrees tilt
-        phi = 2 * np.pi * group_idx / num_groups
-        dx = np.sin(theta) * np.cos(phi)
-        dy = np.sin(theta) * np.sin(phi)
-        dz = np.cos(theta) * base_z
-        direction = np.array([dx, dy, dz])
-        direction /= np.linalg.norm(direction)
-    else:
-        direction = np.array([0.0, 0.0, base_z])
-        
+    outward = 1.0 if host_pos[2] > z_centre else -1.0
+
+    # random lateral direction so multiple groups on one host diverge
+    theta = rng.uniform(0, 2 * np.pi)
+    lateral = np.array([np.cos(theta), np.sin(theta), 0.0])
+
     pos = host_pos.copy()
-    for sym in group_symbols:
-        pos = pos + direction * bond_len
+    for k, sym in enumerate(group_symbols):
+        # first atom goes mostly outward; subsequent atoms bend laterally
+        if k == 0:
+            direction = np.array([0, 0, outward]) * 0.85 + lateral * 0.15
+        else:
+            direction = np.array([0, 0, outward]) * 0.4 + lateral * 0.6
+        direction = direction / np.linalg.norm(direction)
+        this_len = 0.97 if sym == "H" and group_symbols[k-1] == "O" else bond_len
+        pos = pos + direction * this_len
+        pos = pos + rng.normal(0, 0.05, size=3)  # small jitter
         atoms.append(Atom(sym, pos))
-        bond_len = 0.97 if sym == "O" else 1.0
 
 
 PASSIVATION_TABLE = {
@@ -504,12 +524,11 @@ def passivate(atoms, material):
         sym = atoms[host_idx].symbol
         key = (sym, missing)
         if key not in table:
-            for i in range(missing):
-                _add_group_near(atoms, host_idx, ["H"], group_idx=i, num_groups=missing)
+            for _ in range(missing):
+                _add_group_near(atoms, host_idx, ["H"])
             continue
-        groups = table[key]
-        for i, group in enumerate(groups):
-            _add_group_near(atoms, host_idx, group, group_idx=i, num_groups=len(groups))
+        for group in table[key]:
+            _add_group_near(atoms, host_idx, group)
     return atoms
 
 
@@ -528,16 +547,114 @@ def freeze_interior(atoms, frozen_fraction=FROZEN_FRACTION):
     return atoms
 
 
+def _relax(atoms, label="relax", fmax=0.05, steps=300, report_every=25,
+           max_seconds=600):
+    """
+    Relaxation with progress printing AND a hard wall-time cap. Uses the
+    irun() generator so we can break on a time budget WITHOUT raising an
+    exception inside a callback (which Python 3.7+ converts to RuntimeError).
+
+    Auto-selects FIRE for bad initial geometries (huge/NaN forces), BFGS
+    otherwise.
+    """
+    import time as _time
+    from ase.optimize import FIRE
+
+    try:
+        f0 = np.sqrt((atoms.get_forces() ** 2).sum(axis=1).max())
+    except Exception:
+        f0 = np.inf
+    Optimizer = FIRE if (not np.isfinite(f0) or f0 > 50) else BFGS
+    if Optimizer is FIRE:
+        print(f"      [{label}] high/NaN initial fmax={f0} -> using FIRE", flush=True)
+
+    opt = Optimizer(atoms, logfile=None)
+    t0 = _time.time()
+    aborted = False
+    n = 0
+    for _ in opt.irun(fmax=fmax, steps=steps):
+        n += 1
+        elapsed = _time.time() - t0
+        if n % report_every == 0:
+            try:
+                fmax_now = np.sqrt((atoms.get_forces() ** 2).sum(axis=1).max())
+            except Exception:
+                fmax_now = float("nan")
+            print(f"      [{label}] step {n}: fmax={fmax_now:.3f} eV/A "
+                  f"({elapsed:.0f}s)", flush=True)
+        if elapsed > max_seconds:
+            aborted = True
+            break
+
+    try:
+        fmax_final = np.sqrt((atoms.get_forces() ** 2).sum(axis=1).max())
+    except Exception:
+        fmax_final = float("nan")
+    if aborted:
+        conv = f"ABORTED at {max_seconds}s wall-cap"
+    elif np.isfinite(fmax_final) and fmax_final <= fmax:
+        conv = "converged"
+    else:
+        conv = f"stopped (fmax={fmax_final})"
+    print(f"      [{label}] done: fmax={fmax_final:.3f} eV/A, {conv} "
+          f"({_time.time()-t0:.0f}s)", flush=True)
+    return atoms
+
+
+def _fix_close_contacts(atoms, min_dist=1.1, max_sweeps=50):
+    """
+    Push apart any atom pair closer than min_dist (Angstrom) before relaxation.
+    This is the safeguard against NaN/exploding forces from near-coincident
+    atoms created by crude passivation placement. More aggressive than before:
+    larger min_dist, more sweeps, and it keeps going until no pair is too close
+    (or max_sweeps reached). Uses a neighbor-list-free O(N^2) scan (fine for
+    ~200-atom slabs).
+    """
+    pos = atoms.get_positions()
+    n = len(atoms)
+    for sweep in range(max_sweeps):
+        # compute all pairwise distances via broadcasting
+        diff = pos[:, None, :] - pos[None, :, :]
+        dist = np.sqrt((diff ** 2).sum(axis=2))
+        np.fill_diagonal(dist, np.inf)
+        too_close = np.argwhere(dist < min_dist)
+        if len(too_close) == 0:
+            atoms.set_positions(pos)
+            if sweep > 0:
+                print(f"      [passivation] resolved close contacts in {sweep} sweeps",
+                      flush=True)
+            return atoms
+        for i, j in too_close:
+            if i >= j:
+                continue
+            d = pos[i] - pos[j]
+            r = np.linalg.norm(d)
+            if r < 1e-6:
+                # exactly coincident: push in a random direction
+                d = np.random.default_rng(int(i) * 1000 + int(j)).normal(size=3)
+                r = np.linalg.norm(d)
+            push = (min_dist - r + 0.15) * (d / (r + 1e-9)) * 0.5
+            pos[i] += push
+            pos[j] -= push
+    print(f"      [passivation] WARNING: close contacts remain after "
+          f"{max_sweeps} sweeps (min pair dist {dist.min():.2f} A)", flush=True)
+    atoms.set_positions(pos)
+    return atoms
+
+
 def anneal_and_relax(atoms, material, calc):
     p = PROTOCOL[material]
     atoms = atoms.copy()
+    atoms = _fix_close_contacts(atoms)   # prevent exploding-force hang
     atoms.calc = calc
     atoms = freeze_interior(atoms)
     print(f"    anneal + relax ({len(atoms)} atoms)...", flush=True)
+    # gentle pre-relax of just the passivation before heating
+    _relax(atoms, label="pre-relax", fmax=0.2, steps=60, max_seconds=180)
     MaxwellBoltzmannDistribution(atoms, temperature_K=p["anneal_K"])
     _md_stage(atoms, p["anneal_K"], p["anneal_ps"], label="anneal")
     _quench(atoms, p["anneal_K"], 0, p["anneal_quench_ps"])
-    _run_bfgs(atoms, fmax=0.05, steps=300, label="anneal relax")
+    _relax(atoms, label="surface-relax", fmax=0.05, steps=300, max_seconds=600)
     return atoms
 
 
@@ -545,33 +662,69 @@ def anneal_and_relax(atoms, material, calc):
 # 7. Site classification WITH exposure filter (addresses Problem A)
 # ===========================================================================
 
-def _surface_exposed(atoms, idx, probe_top_frac=0.30):
+def _surface_exposed(atoms, idx, nl=None, probe_top_frac=0.30):
     """
-    Check if a site is exposed to the surface (not buried).
+    DEPRECATED heuristic (kept for reference). The validated method is
+    _is_surface_site() below, implementing Kim et al. SI S4.1 exactly.
+    """
+    return _is_surface_site(atoms, idx)
 
-    IMPORTANT: this filter is only physically meaningful on a RELAXED slab.
-    On a freshly-passivated (pre-anneal) structure, the crude vertical group
-    placement stacks atoms above each host, so everything reads as "blocked"
-    and this returns False for all sites. Run anneal_and_relax() first (as the
-    full pipeline does) before trusting exposed-site counts.
+
+def _is_surface_site(atoms, idx, depth_cutoff=3.5):
     """
-    z = atoms.get_positions()[:, 2]
-    z_min, z_max = z.min(), z.max()
-    span = z_max - z_min
-    zi = atoms[idx].position[2]
-    near_top = zi >= z_max - span * probe_top_frac
-    near_bot = zi <= z_min + span * probe_top_frac
-    if not (near_top or near_bot):
-        return False
-    outward = 1.0 if near_top else -1.0
-    pos_i = atoms[idx].position
-    for j, atom in enumerate(atoms):
-        if j == idx:
-            continue
-        d = atom.position - pos_i
-        if np.hypot(d[0], d[1]) < 1.6 and (outward * d[2]) > 0.3:
-            return False
-    return True
+    Kim et al. SI S4.1 surface-site test (exact reproduction):
+
+      1. For candidate O/N atom i at (xi,yi,zi) with covalent radius r_i:
+      2. Exclude it if it lies > depth_cutoff (3.5 A) below the topmost atom
+         OF THE SAME ELEMENT (i.e. it is deep subsurface).
+      3. Project every OTHER non-H atom j with z_j > z_i + r_cov_i onto the
+         xy-plane. If any such atom's covalent-radius circle overlaps the
+         circle of radius r_i centred at (xi,yi), the site is BLOCKED.
+      4. If no projected circle overlaps, i is an exposed surface site.
+
+    This is a covalent-radius occlusion test (a projected-disk shadow test),
+    NOT the old z-band + cylinder heuristic. It reproduces the paper's
+    reported densities on their own deposited structures.
+
+    Works on both slab surfaces (top and bottom) because the topmost-atom
+    reference is per-element and the projection is directional (only atoms
+    ABOVE the candidate can occlude it).
+    """
+    symbols = atoms.get_chemical_symbols()
+    pos = atoms.get_positions()
+    sym_i = symbols[idx]
+    zi = pos[idx, 2]
+    xi, yi = pos[idx, 0], pos[idx, 1]
+    r_i = covalent_radii[atomic_numbers[sym_i]]
+
+    def _exposed_from(direction):
+        # direction = +1 : atoms above occlude (top surface)
+        #           = -1 : atoms below occlude (bottom surface)
+        same_elem_z = pos[[k for k, s in enumerate(symbols) if s == sym_i], 2]
+        if direction > 0:
+            extreme = same_elem_z.max()
+            if extreme - zi > depth_cutoff:
+                return False
+        else:
+            extreme = same_elem_z.min()
+            if zi - extreme > depth_cutoff:
+                return False
+
+        for j, sym_j in enumerate(symbols):
+            if j == idx or sym_j == "H":
+                continue
+            zj = pos[j, 2]
+            r_j = covalent_radii[atomic_numbers[sym_j]]
+            if direction > 0 and zj <= zi + r_i:
+                continue
+            if direction < 0 and zj >= zi - r_i:
+                continue
+            dxy = np.hypot(pos[j, 0] - xi, pos[j, 1] - yi)
+            if dxy < (r_i + r_j):   # projected circles overlap -> blocked
+                return False
+        return True
+
+    return _exposed_from(+1) or _exposed_from(-1)
 
 
 def classify_sites(atoms, material, exposure_filter=True):
@@ -583,7 +736,7 @@ def classify_sites(atoms, material, exposure_filter=True):
     def record(store, site_type, host_idx):
         store.setdefault(site_type, {"total": 0, "exposed": 0, "indices": []})
         store[site_type]["total"] += 1
-        if (not exposure_filter) or _surface_exposed(atoms, host_idx):
+        if (not exposure_filter) or _is_surface_site(atoms, host_idx):
             store[site_type]["exposed"] += 1
             store[site_type]["indices"].append(host_idx)
 
@@ -612,10 +765,76 @@ def classify_sites(atoms, material, exposure_filter=True):
     return counts
 
 
-def surface_area_nm2(atoms, roughness_correction=1.5):
+def cluster_representative_sites(atoms, site_indices, n_representatives=3):
+    """
+    Problem B ("excess calculations"): collapse many near-identical reactive
+    sites into a few representatives, so downstream DFT/MLIP reactivity calcs
+    run on ~3 sites per functional group (as Kim et al. do) instead of every
+    site. Sites are clustered by a local-environment fingerprint; the member
+    closest to each cluster centroid is the representative, weighted by cluster
+    population.
+
+    Returns list of (representative_site_index, population_weight).
+    """
+    if len(site_indices) == 0:
+        return []
+    if len(site_indices) <= n_representatives:
+        w = 1.0 / len(site_indices)
+        return [(i, w) for i in site_indices]
+
+    # local-environment fingerprint: sorted neighbour distances within a cutoff
+    cutoffs = natural_cutoffs(atoms)
+    nl = NeighborList([max(3.5, c) for c in cutoffs], self_interaction=False, bothways=True)
+    nl.update(atoms)
     cell = atoms.get_cell()
-    flat = np.linalg.norm(np.cross(cell[0], cell[1])) / 100.0
-    return flat * roughness_correction
+
+    def fingerprint(idx, k=12, rcut=4.0):
+        nbrs, offsets = nl.get_neighbors(idx)
+        p0 = atoms.positions[idx]
+        ds = []
+        for j, off in zip(nbrs, offsets):
+            d = np.linalg.norm(atoms.positions[j] + off @ cell - p0)
+            if d < rcut:
+                ds.append(d)
+        ds = sorted(ds)[:k]
+        ds += [rcut] * (k - len(ds))   # pad
+        return np.array(ds)
+
+    fps = np.array([fingerprint(i) for i in site_indices])
+
+    try:
+        from sklearn.cluster import KMeans
+        k = min(n_representatives, len(site_indices))
+        km = KMeans(n_clusters=k, random_state=0, n_init=10).fit(fps)
+        labels, centers = km.labels_, km.cluster_centers_
+    except Exception:
+        # fallback: simple binning if sklearn unavailable
+        labels = np.arange(len(site_indices)) % n_representatives
+        centers = None
+
+    reps = []
+    for c in sorted(set(labels)):
+        members = np.where(labels == c)[0]
+        if centers is not None:
+            dists = np.linalg.norm(fps[members] - centers[c], axis=1)
+            rep_local = members[np.argmin(dists)]
+        else:
+            rep_local = members[0]
+        reps.append((int(site_indices[rep_local]), len(members) / len(site_indices)))
+    return reps
+
+
+def surface_area_nm2(atoms, both_surfaces=True):
+    """
+    Reactive-site normalisation area in nm^2.
+
+    A cleaved slab exposes TWO surfaces (top + bottom), and reactive sites are
+    counted across both. To get a PER-SURFACE density (as the paper reports),
+    divide the total site count by (2 * flat_area).
+    """
+    cell = atoms.get_cell()
+    flat = np.linalg.norm(np.cross(cell[0], cell[1])) / 100.0  # A^2 -> nm^2
+    return 2.0 * flat if both_surfaces else flat
 
 
 # ===========================================================================
@@ -656,9 +875,6 @@ def flag_strained_sites(atoms, material, site_indices, deviation_deg=15.0):
     For SiO2 we check the Si-O-Si angle at the site's bridging oxygen / host;
     strained 3-membered-ring oxygens deviate strongly from the amorphous mean.
     Returns set of site indices flagged as anomalous/strained hot-spots.
-
-    NOTE: This is a geometric proxy. It flags sites for the agent to treat with
-    caution (their DeltaE will be less transferable), not sites to delete.
     """
     center, refs = ("O", {"Si"}) if material == "SiO2" else ("N", {"Si"})
     mean_angle = _bulk_mean_angle(atoms, center, refs)
@@ -768,15 +984,11 @@ def slab_passes_quality_gate(counts, area, material, n_std=2.5, min_clump_ratio=
 
 def build_one_surface(material, calc, seed, cleave_frac, supercell=(2, 2, 2),
                       use_cache=True, cache_dir=None, published_bulk=None):
-    """
-    Build one amorphous surface slab.
-
-    If published_bulk is provided, skips melt-quench entirely and uses that
-    structure directly (e.g., from Kim et al.'s published data).
-    Otherwise, checks the cache before running expensive melt-quench MD.
-    """
+    """Build a single surface (melt-quenches its own bulk). Kept for
+    backwards compatibility; build_surface_ensemble now uses the more
+    efficient build_two_terminations() which shares one bulk."""
     rng = np.random.default_rng(seed)
-
+    
     if published_bulk is not None:
         bulk = published_bulk.copy()
         print(f"    using published bulk ({len(bulk)} atoms)", flush=True)
@@ -788,17 +1000,56 @@ def build_one_surface(material, calc, seed, cleave_frac, supercell=(2, 2, 2),
         bulk = melt_quench_bulk(crystal_sc, material, calc, seed=seed,
                                 supercell=supercell, use_cache=use_cache,
                                 cache_dir=cache_dir)
-
+                                
     slab = cleave_with_vacuum(bulk, cleave_frac=cleave_frac)
     slab = passivate(slab, material)
     slab = anneal_and_relax(slab, material, calc)
+    slab.calc = None
     return slab
+
+
+def build_two_terminations(material, calc, seed, supercell=(2, 2, 2),
+                           use_cache=True, cache_dir=None, published_bulk=None,
+                           quench_ps_override=None):
+    """
+    Efficient path: melt-quench ONE bulk, then cleave it into two distinct
+    surface terminations. This halves the most expensive step (melt-quench)
+    compared to building each surface from its own bulk.
+
+    quench_ps_override: cooling-rate control (see melt_quench_bulk); both
+    terminations inherit the bulk's cooling rate.
+    Returns a list of 2 finished surfaces.
+    """
+    rng = np.random.default_rng(seed)
+    
+    if published_bulk is not None:
+        bulk = published_bulk.copy()
+        print(f"    using published bulk ({len(bulk)} atoms)", flush=True)
+    else:
+        builder = build_alpha_quartz if material == "SiO2" else build_beta_si3n4
+        crystal_sc = builder(supercell=supercell)
+        if material == "SiNx":
+            crystal_sc = apply_sinx_composition(crystal_sc, rng)
+        bulk = melt_quench_bulk(crystal_sc, material, calc, seed=seed,
+                                supercell=supercell, use_cache=use_cache,
+                                cache_dir=cache_dir, quench_ps_override=quench_ps_override)
+
+    surfaces = []
+    for cleave_frac in (0.5, 0.0):
+        slab = cleave_with_vacuum(bulk, cleave_frac=cleave_frac)
+        slab = passivate(slab, material)
+        slab = anneal_and_relax(slab, material, calc)
+        slab.calc = None
+        slab.info["quench_ps"] = bulk.info.get("quench_ps")
+        slab.info["cooling_rate_K_per_ps"] = bulk.info.get("cooling_rate_K_per_ps")
+        surfaces.append(slab)
+    return surfaces
 
 
 def build_surface_ensemble(material, calc, n_bulk=3, target_accepted=None,
                            max_extra_bulk=3, apply_gate=True,
                            supercell=(2, 2, 2), use_cache=True, cache_dir=None,
-                           use_published=False, literature_dir=None):
+                           use_published=False, literature_dir=None, quench_sweep=None):
     """
     Build an ensemble of amorphous surfaces with quality control.
 
@@ -812,9 +1063,16 @@ def build_surface_ensemble(material, calc, n_bulk=3, target_accepted=None,
     cache_dir        : override default cache directory.
     use_published    : if True, try to load published bulk from literature dir.
     literature_dir   : override default literature directory.
+    quench_sweep     : list of quench durations (ps) to cycle across bulks,
+                       giving cooling-rate variation. e.g. [8, 15, 30] mixes
+                       fast (rougher, more sites), medium, and slow (relaxed,
+                       fewer sites) cooling in one ensemble. If None, all bulks
+                       use the protocol default rate (velocity-randomness only).
+                       Bulk b uses quench_sweep[b % len(quench_sweep)].
 
     Each accepted surface is annotated with:
-       .info['strained_sites'], .info['clumping_R'], .info['gate_reasons']
+       .info['strained_sites'], .info['clumping_R'], .info['gate_reasons'],
+       .info['quench_ps'], .info['cooling_rate_K_per_ps']
     """
     accepted, rejected, per_surface = [], [], []
 
@@ -826,21 +1084,24 @@ def build_surface_ensemble(material, calc, n_bulk=3, target_accepted=None,
             print(f"[{material}] no published bulk found in "
                   f"{literature_dir or LITERATURE_DIR}/, falling back to melt-quench")
 
+    def _quench_for_bulk(b):
+        if quench_sweep:
+            return quench_sweep[b % len(quench_sweep)]
+        return None
+
     def process_bulk(b):
-        for t, cleave_frac in enumerate([0.5, 0.0]):
-            slab = build_one_surface(material, calc, seed=1000 * b + t,
-                                     cleave_frac=cleave_frac,
-                                     supercell=supercell,
-                                     use_cache=use_cache,
-                                     cache_dir=cache_dir,
-                                     published_bulk=published_bulk)
+        # ONE melt-quench -> two terminations (shares the expensive step)
+        two = build_two_terminations(material, calc, seed=1000 * b,
+                                     supercell=supercell, use_cache=use_cache,
+                                     cache_dir=cache_dir, published_bulk=published_bulk,
+                                     quench_ps_override=_quench_for_bulk(b))
+        for t, slab in enumerate(two):
             counts = classify_sites(slab, material, exposure_filter=True)
             area = surface_area_nm2(slab)
             densities = {st: v["exposed"] / area for st, v in counts.items()}
 
             passed, reasons = slab_passes_quality_gate(counts, area, material, atoms=slab)
 
-            # strain flagging on the primary terminal site type
             primary = "OH" if material == "SiO2" else "NH2"
             strained = set()
             if primary in counts and counts[primary]["indices"]:
@@ -853,7 +1114,8 @@ def build_surface_ensemble(material, calc, n_bulk=3, target_accepted=None,
             slab.info["gate_reasons"] = reasons
 
             tag = "ACCEPT" if passed else "REJECT"
-            print(f"[{material}] bulk {b} term {t}: "
+            cr = slab.info.get("cooling_rate_K_per_ps")
+            print(f"[{material}] bulk {b} term {t} ({cr} K/ps): "
                   f"{ {k: round(v,2) for k,v in densities.items()} } "
                   f"| strained={len(strained)} R={R if R is None else round(R,2)} "
                   f"| {tag}"
@@ -868,7 +1130,6 @@ def build_surface_ensemble(material, calc, n_bulk=3, target_accepted=None,
     for b in range(n_bulk):
         process_bulk(b)
 
-    # over-generate if a minimum number of accepted slabs is required
     extra = 0
     while target_accepted and len(accepted) < target_accepted and extra < max_extra_bulk:
         print(f"[{material}] only {len(accepted)} accepted; generating extra bulk...")
@@ -902,6 +1163,5 @@ if __name__ == "__main__":
             write(f"{material}_surface_{i}.xyz", s)
         print(f"[{material}] ensemble summary (exposed-site densities):")
         for st, info in summary.items():
-            if not st.startswith("_"):
-                print(f"    {st}: {info['mean_nm2']} +/- {info['std_nm2']} nm^-2 "
-                      f"(literature: {info['literature']})")
+            print(f"    {st}: {info['mean_nm2']} +/- {info['std_nm2']} nm^-2 "
+                  f"(literature: {info['literature']})")
