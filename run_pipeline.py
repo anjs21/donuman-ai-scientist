@@ -34,6 +34,15 @@ import os
 import time
 
 
+def _material_of_file(basename: str, material: str) -> bool:
+    """Return True if `basename` corresponds to `material` (SiO2 or SiNx)."""
+    _KEYWORDS = {
+        "SiO2": ("SiO2", "oxide"),
+        "SiNx": ("SiNx", "nitride"),
+    }
+    return any(kw in basename for kw in _KEYWORDS.get(material, (material,)))
+
+
 def build_or_load_surfaces(args, sb, calc):
     """Return {material: [slab, ...]} either from disk or a fresh build."""
     from ase.io import read
@@ -44,7 +53,8 @@ def build_or_load_surfaces(args, sb, calc):
         for material in args.materials:
             files = []
             for pat in patterns:
-                files += [f for f in glob.glob(pat) if material in os.path.basename(f)]
+                files += [f for f in glob.glob(pat)
+                          if _material_of_file(os.path.basename(f), material)]
             files = sorted(set(files))
             if not files:
                 print(f"  [load] no existing files matched for {material}")
@@ -52,6 +62,7 @@ def build_or_load_surfaces(args, sb, calc):
             print(f"  [load] {material}: {len(surfaces[material])} surface(s) "
                   f"from disk")
         return surfaces
+
 
     {"test": sb.use_test_protocol,
      "fast": sb.use_fast_protocol,
@@ -109,6 +120,9 @@ def main():
                     help="glob pattern(s) of existing .xyz surfaces to reuse")
     ap.add_argument("--reagents", nargs="+", default=None,
                     help="restrict screen to these reagent names")
+    ap.add_argument("--n-workers", type=int, default=1,
+                    help="parallel workers for per-site relaxations in Phase 2 "
+                         "(default 1; try 2-4 to keep the GPU busier)")
     ap.add_argument("--max-sites", type=int, default=3,
                     help="representative sites per site-type per surface")
     ap.add_argument("--dtype", default="float32", choices=["float32", "float64"])
@@ -151,7 +165,8 @@ def main():
     reagents = lib.get_reagents(names=args.reagents) if args.reagents \
         else lib.get_reagents()
     energetics = en.screen_reagents(surfaces, reagents, calc,
-                                    max_sites=args.max_sites)
+                                    max_sites=args.max_sites,
+                                    n_workers=args.n_workers)
 
     # -- Phase 3: selection agent --
     print("\n[Phase 3] Selection agent")

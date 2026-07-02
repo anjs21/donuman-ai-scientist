@@ -50,12 +50,12 @@ ranking is simply "most favourable on the growth surface, high volatility".
 The agent parses the fenced `yaml`-style block below. Units: eV.
 
 ```selection-config
-bind_threshold_eV: -0.30       # inhibitor must be at least this favourable on NGS
-spare_threshold_eV: -0.20      # inhibitor should be no more favourable than this on GS
-precursor_threshold_eV: -0.30  # precursor must be at least this favourable on GS
-contrast_weight: 1.0           # weight on (dE_GS - dE_NGS)
+bind_threshold_eV: -0.1       # inhibitor must be at least this favourable on NGS
+spare_threshold_eV: -0.2      # inhibitor should be no more favourable than this on GS
+precursor_threshold_eV: -0.3  # precursor must be at least this favourable on GS
+contrast_weight: 1           # weight on (dE_GS - dE_NGS)
 volatility_bonus: 0.15         # score bonus for high-volatility reagents
 volatility_penalty: 0.15       # score penalty for low-volatility reagents
-strain_penalty: 0.10           # penalty if favourable binding is strain-dominated
-min_contrast_eV: 0.20          # below this, treat GS/NGS as non-selective
+strain_penalty: 0.1           # penalty if favourable binding is strain-dominated
+min_contrast_eV: 0.3          # below this, treat GS/NGS as non-selective
 ```

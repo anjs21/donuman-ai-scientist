@@ -37,6 +37,7 @@ from ase import Atoms
 from ase.optimize import BFGS
 from ase.constraints import FixAtoms
 from ase.neighborlist import NeighborList, natural_cutoffs
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import inhibitor_library as lib
 
@@ -212,7 +213,7 @@ def reaction_energy_at_site(slab, site_idx, reagent, calc,
 # ===========================================================================
 
 def screen_reagent_on_surface(slab, material, reagent, calc,
-                              site_types=None, max_sites=4, **kw):
+                              site_types=None, max_sites=4, n_workers=1, **kw):
     """
     Evaluate a reagent at up to `max_sites` representative sites (per applicable
     site type) of a slab. Uses the exposure-filtered, representative indices
@@ -233,15 +234,31 @@ def screen_reagent_on_surface(slab, material, reagent, calc,
         counts = sb.classify_sites(slab, material, exposure_filter=False)
     result = {}
     all_vals = []
+    n_workers = kw.pop("n_workers", 1)
     for st, info in counts.items():
         if wanted and st not in wanted:
             continue
         idxs = info["indices"][:max_sites]
         vals = []
-        for idx in idxs:
-            dE = reaction_energy_at_site(slab, idx, reagent, calc, **kw)
-            if not np.isnan(dE):
-                vals.append(dE)
+        if n_workers > 1 and len(idxs) > 1:
+            # Parallelise independent site relaxations with a thread pool.
+            # MACE is not fully thread-safe when multiple threads write to
+            # the same CUDA context simultaneously, so cap at a safe level.
+            workers = min(n_workers, len(idxs), 4)
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {
+                    pool.submit(reaction_energy_at_site, slab, idx, reagent, calc, **kw): idx
+                    for idx in idxs
+                }
+                for fut in as_completed(futures):
+                    dE = fut.result()
+                    if not np.isnan(dE):
+                        vals.append(dE)
+        else:
+            for idx in idxs:
+                dE = reaction_energy_at_site(slab, idx, reagent, calc, **kw)
+                if not np.isnan(dE):
+                    vals.append(dE)
         if vals:
             result[st] = {
                 "dE_mean": float(np.mean(vals)),
@@ -255,7 +272,8 @@ def screen_reagent_on_surface(slab, material, reagent, calc,
     return result
 
 
-def screen_reagents(surfaces_by_material, reagents, calc, max_sites=3, **kw):
+def screen_reagents(surfaces_by_material, reagents, calc, max_sites=3,
+                    n_workers=1, **kw):
     """
     Full screen: every reagent x every material, averaged over the provided
     surface ensemble.
@@ -272,7 +290,8 @@ def screen_reagents(surfaces_by_material, reagents, calc, max_sites=3, **kw):
             per_site_agg = {}
             for slab in slabs:
                 r = screen_reagent_on_surface(slab, material, reagent, calc,
-                                              max_sites=max_sites, **kw)
+                                              max_sites=max_sites,
+                                              n_workers=n_workers, **kw)
                 if not np.isnan(r["_overall"]):
                     overalls.append(r["_overall"])
                     means.append(r["_mean"])
