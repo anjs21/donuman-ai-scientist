@@ -792,6 +792,11 @@ def build_one_surface(material, calc, seed, cleave_frac, supercell=(2, 2, 2),
     slab = cleave_with_vacuum(bulk, cleave_frac=cleave_frac)
     slab = passivate(slab, material)
     slab = anneal_and_relax(slab, material, calc)
+    # Detach the shared live calculator before returning. It is reused for every
+    # slab, so its cached results (forces of the LAST system built) would ride
+    # along and make ase.io.write() broadcast a mismatched-length force array
+    # ("could not broadcast (N,) into (M,)") when the slabs differ in atom count.
+    slab.calc = None
     return slab
 
 
