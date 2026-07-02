@@ -268,6 +268,13 @@ def get_calculator(dtype="float32"):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         calc = mace_mp(model="medium-omat-0", device=device, default_dtype=dtype)
         print(f"[calc] MACE-MP-0 loaded on {device} (dtype={dtype})")
+        if device == "cpu":
+            print("[calc] *** WARNING: running on CPU. MACE MD is ~50-100x "
+                  "slower than GPU -- a full-mode melt-quench or anneal can take "
+                  "MANY HOURS. If you have a GPU, check that "
+                  "torch.cuda.is_available() returns True in THIS environment "
+                  "(driver/toolkit mismatch is the usual cause). Otherwise use "
+                  "--mode test/fast for iteration. ***", flush=True)
         return calc
     except Exception as e:
         print(f"[WARN] MACE unavailable ({e}); using LJ placeholder "
@@ -279,6 +286,69 @@ def get_calculator(dtype="float32"):
 # ===========================================================================
 # 3. Melt-quench (bulk amorphization)
 # ===========================================================================
+
+# Progress logging. Set VERBOSE=False (or set_verbose(False)) to silence.
+VERBOSE = True
+MD_LOG_EVERY = 50      # print at least every this many steps ...
+MD_HEARTBEAT_SEC = 15  # ... AND at least this often in wall-clock time
+
+
+def set_verbose(flag=True, log_every=50, heartbeat_sec=15):
+    """Toggle MD/BFGS progress logging, its step interval, and its wall-clock
+    heartbeat (a line is printed whenever EITHER threshold is crossed, so even
+    a very slow run shows a fresh line every `heartbeat_sec` seconds)."""
+    global VERBOSE, MD_LOG_EVERY, MD_HEARTBEAT_SEC
+    VERBOSE, MD_LOG_EVERY, MD_HEARTBEAT_SEC = flag, log_every, heartbeat_sec
+
+
+def _attach_md_logger(dyn, atoms, n_steps, label):
+    """Attach a per-step observer that prints throughput + ETA on a time-based
+    heartbeat. Because it fires every step, the step counter advancing between
+    heartbeats proves the run is alive; a frozen counter across two heartbeats
+    means a single force evaluation is genuinely stuck (environment/geometry),
+    not merely slow."""
+    if not VERBOSE:
+        return
+    import time as _time
+    t0 = _time.time()
+    state = {"t": t0, "step": 0, "printed": 0.0}
+
+    def _report():
+        step = dyn.nsteps
+        now = _time.time()
+        due = (step % MD_LOG_EVERY == 0) or (now - state["printed"] >= MD_HEARTBEAT_SEC)
+        if not due:
+            return
+        dt = now - state["t"]
+        rate = (step - state["step"]) / dt if dt > 0 else 0.0
+        eta = (n_steps - step) / rate if rate > 0 else float("inf")
+        try:
+            T = atoms.get_temperature()
+        except Exception:
+            T = float("nan")
+        try:
+            epot = atoms.get_potential_energy()   # cached from the MD force call
+        except Exception:
+            epot = float("nan")
+        print(f"        [{label}] step {step:5d}/{n_steps}  T={T:6.0f}K  "
+              f"Epot={epot:9.1f}eV  {rate:5.1f} steps/s  ETA {eta:5.0f}s  "
+              f"(elapsed {now-t0:4.0f}s)", flush=True)
+        state["t"], state["step"], state["printed"] = now, step, now
+
+    dyn.attach(_report, interval=1)
+
+
+def _run_bfgs(atoms, fmax, steps, label="relax"):
+    """BFGS relaxation that streams per-step convergence when VERBOSE."""
+    if VERBOSE:
+        print(f"      [{label}] BFGS (<= {steps} steps, fmax={fmax}) ...", flush=True)
+    opt = BFGS(atoms, logfile="-" if VERBOSE else None)
+    opt.run(fmax=fmax, steps=steps)
+    if VERBOSE:
+        print(f"      [{label}] BFGS stopped after {opt.get_number_of_steps()} "
+              f"steps", flush=True)
+    return atoms
+
 
 def _set_hydrogen_masses(atoms, temp_K):
     masses = atoms.get_masses()
@@ -293,18 +363,27 @@ def _md_stage(atoms, temp_K, time_ps, timestep_fs=2.0, label=""):
     n_steps = max(1, int(time_ps * 1000 / timestep_fs))
     import time as _time
     t0 = _time.time()
+    if VERBOSE and label:
+        print(f"      [{label}] starting {n_steps} steps @ {temp_K:.0f}K "
+              f"({len(atoms)} atoms; first force eval may take a few s to "
+              f"warm up)...", flush=True)
     dyn = Langevin(atoms, timestep_fs * units.fs, temperature_K=temp_K, friction=0.01)
+    _attach_md_logger(dyn, atoms, n_steps, label or "md")
     dyn.run(n_steps)
-    if label:
+    if label and VERBOSE:
         print(f"      [{label}] {temp_K:.0f}K {time_ps}ps "
               f"({n_steps} steps) done in {_time.time()-t0:.0f}s", flush=True)
     return atoms
 
 
 def _quench(atoms, T_start, T_end, time_ps, n_stages=15, timestep_fs=2.0):
+    if VERBOSE:
+        print(f"      [quench] {T_start:.0f}K -> {T_end:.0f}K over "
+              f"{n_stages} stages ({time_ps}ps total)", flush=True)
     for k in range(n_stages):
         T = T_start + (T_end - T_start) * (k + 1) / n_stages
-        _md_stage(atoms, max(T, 1), time_ps / n_stages, timestep_fs)
+        _md_stage(atoms, max(T, 1), time_ps / n_stages, timestep_fs,
+                  label=f"quench {k+1}/{n_stages}")
     return atoms
 
 
@@ -327,8 +406,7 @@ def melt_quench_bulk(atoms, material, calc, seed=0, supercell=(2, 2, 2),
     _md_stage(atoms, p["melt_K"], p["melt_ps"], label="melt")
     print("      quenching...", flush=True)
     _quench(atoms, p["melt_K"], p["quench_to_K"], p["quench_ps"])
-    print("      final BFGS relax...", flush=True)
-    BFGS(atoms, logfile=None).run(fmax=0.05, steps=200)
+    _run_bfgs(atoms, fmax=0.05, steps=200, label="melt-quench relax")
 
     # Save to cache for future runs
     if use_cache:
@@ -376,10 +454,23 @@ def find_dangling(atoms):
     return dangling
 
 
-def _add_group_near(atoms, host_idx, group_symbols, bond_len=1.5):
+def _add_group_near(atoms, host_idx, group_symbols, group_idx=0, num_groups=1, bond_len=1.5):
     host_pos = atoms[host_idx].position
     z_centre = atoms.get_positions()[:, 2].mean()
-    direction = np.array([0, 0, 1.0]) if host_pos[2] > z_centre else np.array([0, 0, -1.0])
+    base_z = 1.0 if host_pos[2] > z_centre else -1.0
+    
+    if num_groups > 1:
+        # Tilt direction to avoid overlap
+        theta = 0.35  # ~20 degrees tilt
+        phi = 2 * np.pi * group_idx / num_groups
+        dx = np.sin(theta) * np.cos(phi)
+        dy = np.sin(theta) * np.sin(phi)
+        dz = np.cos(theta) * base_z
+        direction = np.array([dx, dy, dz])
+        direction /= np.linalg.norm(direction)
+    else:
+        direction = np.array([0.0, 0.0, base_z])
+        
     pos = host_pos.copy()
     for sym in group_symbols:
         pos = pos + direction * bond_len
@@ -413,11 +504,12 @@ def passivate(atoms, material):
         sym = atoms[host_idx].symbol
         key = (sym, missing)
         if key not in table:
-            for _ in range(missing):
-                _add_group_near(atoms, host_idx, ["H"])
+            for i in range(missing):
+                _add_group_near(atoms, host_idx, ["H"], group_idx=i, num_groups=missing)
             continue
-        for group in table[key]:
-            _add_group_near(atoms, host_idx, group)
+        groups = table[key]
+        for i, group in enumerate(groups):
+            _add_group_near(atoms, host_idx, group, group_idx=i, num_groups=len(groups))
     return atoms
 
 
@@ -445,7 +537,7 @@ def anneal_and_relax(atoms, material, calc):
     MaxwellBoltzmannDistribution(atoms, temperature_K=p["anneal_K"])
     _md_stage(atoms, p["anneal_K"], p["anneal_ps"], label="anneal")
     _quench(atoms, p["anneal_K"], 0, p["anneal_quench_ps"])
-    BFGS(atoms, logfile=None).run(fmax=0.05, steps=300)
+    _run_bfgs(atoms, fmax=0.05, steps=300, label="anneal relax")
     return atoms
 
 
