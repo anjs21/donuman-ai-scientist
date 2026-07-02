@@ -223,9 +223,14 @@ def screen_reagent_on_surface(slab, material, reagent, calc,
     plus "_overall" = the most favourable (min) dE across all sites tested.
     """
     import surface_builder as sb
-    counts = sb.classify_sites(slab, material, exposure_filter=True)
-
     wanted = set(site_types) if site_types else set(reagent.targets)
+
+    counts = sb.classify_sites(slab, material, exposure_filter=True)
+    # Fallback: if the (strict) exposure filter left no sites of interest --
+    # e.g. on a marginal/under-relaxed slab -- fall back to all classified
+    # sites so the screen still returns numbers rather than silent NaNs.
+    if not any(st in counts and counts[st]["indices"] for st in wanted):
+        counts = sb.classify_sites(slab, material, exposure_filter=False)
     result = {}
     all_vals = []
     for st, info in counts.items():

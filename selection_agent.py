@@ -25,10 +25,23 @@ Depends only on the numbers produced upstream; no GPU needed.
 
 import re
 import json
+import math
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
 import inhibitor_library as lib
+
+
+def _clean(x):
+    """Normalise missing/NaN energies to None so gates handle them explicitly."""
+    if x is None:
+        return None
+    try:
+        if math.isnan(float(x)):
+            return None
+    except (TypeError, ValueError):
+        return None
+    return float(x)
 
 
 # Which model material plays which role in the target process.
@@ -169,8 +182,8 @@ def select(energetics_results, cfg=None, strain_dominated_names=None):
         reagent = lib.LIBRARY.get(name)
         if reagent is None:
             continue
-        dE_GS = per_mat.get(GROWTH_SURFACE, {}).get("dE_mean")
-        dE_NGS = per_mat.get(NONGROWTH_SURFACE, {}).get("dE_mean")
+        dE_GS = _clean(per_mat.get(GROWTH_SURFACE, {}).get("dE_mean"))
+        dE_NGS = _clean(per_mat.get(NONGROWTH_SURFACE, {}).get("dE_mean"))
 
         if reagent.category == "inhibitor":
             score, ok, reasons, terms = _score_inhibitor(
