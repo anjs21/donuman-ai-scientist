@@ -1,7 +1,7 @@
 # AS-ALD Co-Scientist — Full Pipeline (Phases 0–5)
 
 This document covers the modules added on top of the surface builder
-(`surface_builder.py` / `run_surfaces.py`, documented in `README.md`) to turn it
+(`surface_builder.py` / `run_surface_builder.py`, documented in `README.md`) to turn it
 into a complete in-silico AI co-scientist for Challenge 4. It takes the
 amorphous surfaces the builder produces and reasons all the way to the target
 metric: **passivate SiN so SiOx grows on SiO with 90% selectivity at 10 nm.**
@@ -29,7 +29,7 @@ metric: **passivate SiN so SiOx grows on SiO with 90% selectivity at 10 nm.**
 # fast smoke test of the whole chain (uses TEST-mode surfaces)
 python3 run_pipeline.py --mode test
 
-# reuse surfaces already built by run_surfaces.py, screen the full library
+# reuse surfaces already built by run_surface_builder.py, screen the full library
 python3 run_pipeline.py --use-existing "SiO2_*_*.xyz" "SiNx_*_*.xyz"
 
 # restrict the screen / control cost

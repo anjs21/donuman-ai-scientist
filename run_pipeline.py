@@ -18,7 +18,7 @@ Typical use
     # fast smoke test of the whole chain (minutes; numbers are rough)
     python run_pipeline.py --mode test
 
-    # reuse surfaces already built by run_surfaces.py, screen the full library
+    # reuse surfaces already built by run_surface_builder.py, screen the full library
     python run_pipeline.py --use-existing "SiO2_prod_*.xyz" "SiNx_prod_*.xyz"
 
     # production: full-accuracy surfaces + full library
@@ -192,6 +192,9 @@ def main():
         "runtime_s": round(time.time() - t0, 1),
     }
     json_path = os.path.join(args.output_dir, f"{args.report}.json")
+    # guard: --report may include a sub-path; make sure its dir exists so a full
+    # (expensive) run is never lost to a missing-directory error at the last step
+    os.makedirs(os.path.dirname(json_path) or ".", exist_ok=True)
     with open(json_path, "w") as fh:
         json.dump(report, fh, indent=2, default=str)
     md_path = os.path.join(args.output_dir, f"{args.report}.md")

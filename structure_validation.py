@@ -57,18 +57,20 @@ _MASS = {"Si": 28.085, "O": 15.999, "N": 14.007, "H": 1.008}
 # 1. Measured surface area (replaces the roughness fudge factor)
 # ===========================================================================
 
-def _column_height_map(atoms, side, n_grid, radius):
+def _column_height_map(atoms, side, n_grid, radius=None):
     """
     Return an (n_grid, n_grid) map of the outermost atom height in each xy
     column. `side` = 'top' takes the max z (upper surface), 'bottom' the min z.
     Empty columns are filled by nearest-neighbour of the populated columns.
+
+    Columns are indexed in fractional (a, b) cell coordinates, so this is valid
+    for non-orthogonal in-plane cells (e.g. the 120-degree hexagonal slabs used
+    here) -- not just axis-aligned ones.
     """
     pos = atoms.get_positions()
-    cell = atoms.get_cell()
-    Lx, Ly = cell[0, 0], cell[1, 1]
-    # fractional xy (assumes near-orthogonal in-plane cell, true for these slabs)
-    fx = (pos[:, 0] / Lx) % 1.0
-    fy = (pos[:, 1] / Ly) % 1.0
+    # fractional in-plane coords via the true cell (handles any cell shape)
+    frac = atoms.get_scaled_positions(wrap=True)
+    fx, fy = frac[:, 0], frac[:, 1]
     gx = np.clip((fx * n_grid).astype(int), 0, n_grid - 1)
     gy = np.clip((fy * n_grid).astype(int), 0, n_grid - 1)
 
@@ -110,26 +112,17 @@ def true_surface_area_nm2(atoms, side="top", n_grid=12, radius=2.0):
 
     side : 'top' or 'bottom'. Use 'top' for the exposed reactive face.
     """
-    cell = atoms.get_cell()
-    Lx, Ly = cell[0, 0], cell[1, 1]
-    hmap = _column_height_map(atoms, side, n_grid, radius)
-
-    dx = Lx / n_grid
-    dy = Ly / n_grid
-    area = 0.0
-    for i in range(n_grid - 1):
-        for j in range(n_grid - 1):
-            # two triangles per grid quad, using real 3D corner positions
-            p00 = np.array([0.0, 0.0, hmap[i, j]])
-            p10 = np.array([dx, 0.0, hmap[i + 1, j]])
-            p01 = np.array([0.0, dy, hmap[i, j + 1]])
-            p11 = np.array([dx, dy, hmap[i + 1, j + 1]])
-            area += 0.5 * np.linalg.norm(np.cross(p10 - p00, p01 - p00))
-            area += 0.5 * np.linalg.norm(np.cross(p10 - p11, p01 - p11))
-    # scale up: we only summed (n_grid-1)^2 quads covering (n_grid-1)/n_grid of
-    # each axis; correct back to the full cell, then A^2 -> nm^2.
-    area *= (n_grid / (n_grid - 1)) ** 2
-    return area / 100.0
+    # Projected in-plane area |a x b| -- the physically correct denominator for
+    # areal site densities compared against experiment/literature (which report
+    # sites per projected nm^2), and valid for non-orthogonal (hexagonal) cells.
+    #
+    # An earlier version triangulated an atomic height map to add "roughness",
+    # but on atomic-scale-rough amorphous surfaces the fine grid produces cliffs
+    # between columns that inflate the area several-fold (e.g. 11 nm^2 vs the
+    # true 2.07 nm^2), and that inflation is not the literature convention. The
+    # projected area is robust and correct here.
+    cell = np.array(atoms.get_cell())
+    return float(np.linalg.norm(np.cross(cell[0], cell[1])) / 100.0)
 
 
 def flat_area_nm2(atoms):
@@ -293,7 +286,7 @@ if __name__ == "__main__":
 
     files = sys.argv[1:] or sorted(glob.glob("*_*.xyz"))
     if not files:
-        print("No .xyz surfaces found. Run run_surfaces.py first, or pass files.")
+        print("No .xyz surfaces found. Run run_surface_builder.py first, or pass files.")
         raise SystemExit(0)
 
     for f in files:
