@@ -1,0 +1,976 @@
+=== Loading modules on compute node ===
+Loading python/3.11.7
+  Loading requirement: bzip2/1.0.8-ib3znej libmd/1.0.4-2km2lxx
+    libbsd/0.12.1-oocs6an expat/2.6.2-p2t4wry ncurses/6.5-svfl57u
+    readline/8.2-zeda6mx gdbm/1.23-wiol7vk libiconv/1.17-nhc3mhm
+    xz/5.4.6-xxxg42c zlib-ng/2.1.6-jkgunjc libxml2/2.10.3-zbbe7lm
+    pigz/2.8-5bwzpml zstd/1.5.6-uq5yyux tar/1.34-jgektnv gettext/0.22.5-hsxgafg
+    libffi/3.4.6-4vs4jpp libxcrypt/4.4.35-7om46b5 sqlite/3.43.2-4kl5mnp
+    util-linux-uuid/2.38.1-5achpds
+=== Activating virtual environment ===
+=== GPU Information ===
+CUDA available: True
+Device Name: NVIDIA A100-SXM-64GB
+=== Running pipeline in full mode ===
+==================================================================
+AS-ALD in-silico co-scientist — end-to-end pipeline
+==================================================================
+
+[calc] loading MLIP...
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+Using model under Academic Software License (ASL) license, see https://github.com/gabor1/ASL 
+ To use this model you accept the terms of the license.
+Using Materials Project MACE for MACECalculator with /leonardo/home/userexternal/asathyan/.cache/mace/maceomat0mediummodel
+Using float32 for MACECalculator, which is faster but less accurate. Recommended for MD. Use float64 for geometry optimization.
+[calc] MACE-MP-0 loaded on cuda (dtype=float32)
+[protocol] FULL mode (Kim et al. times)
+
+[Phase 1] Building SiO2 surfaces (full mode)...
+    [cache] loaded bulk ← bulk_cache/SiO2_bulk_4d34009e55202755.xyz (72 atoms)
+    anneal + relax (87 atoms)...
+      [anneal] starting 2500 steps @ 1000K (87 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/2500  T=   731K  Epot=   -609.5eV    0.0 steps/s  ETA   infs  (elapsed    2s)
+        [anneal] step    50/2500  T=  1768K  Epot=   -620.3eV    6.8 steps/s  ETA   359s  (elapsed   10s)
+        [anneal] step   100/2500  T=  1706K  Epot=   -622.0eV   38.2 steps/s  ETA    63s  (elapsed   11s)
+        [anneal] step   150/2500  T=  1645K  Epot=   -621.9eV   37.9 steps/s  ETA    62s  (elapsed   12s)
+        [anneal] step   200/2500  T=  1549K  Epot=   -621.5eV   38.0 steps/s  ETA    61s  (elapsed   14s)
+        [anneal] step   250/2500  T=  1464K  Epot=   -622.0eV   38.2 steps/s  ETA    59s  (elapsed   15s)
+        [anneal] step   300/2500  T=  1527K  Epot=   -623.5eV   38.1 steps/s  ETA    58s  (elapsed   16s)
+        [anneal] step   350/2500  T=  1447K  Epot=   -622.2eV   38.0 steps/s  ETA    57s  (elapsed   18s)
+        [anneal] step   400/2500  T=  1514K  Epot=   -622.9eV   38.1 steps/s  ETA    55s  (elapsed   19s)
+        [anneal] step   450/2500  T=  1233K  Epot=   -621.2eV   38.4 steps/s  ETA    53s  (elapsed   20s)
+        [anneal] step   500/2500  T=  1252K  Epot=   -622.1eV   37.6 steps/s  ETA    53s  (elapsed   22s)
+        [anneal] step   550/2500  T=  1530K  Epot=   -625.3eV   38.2 steps/s  ETA    51s  (elapsed   23s)
+        [anneal] step   600/2500  T=  1339K  Epot=   -624.0eV   38.4 steps/s  ETA    50s  (elapsed   24s)
+        [anneal] step   650/2500  T=  1085K  Epot=   -622.1eV   38.3 steps/s  ETA    48s  (elapsed   25s)
+        [anneal] step   700/2500  T=  1358K  Epot=   -623.7eV   38.3 steps/s  ETA    47s  (elapsed   27s)
+        [anneal] step   750/2500  T=  1251K  Epot=   -624.0eV   38.0 steps/s  ETA    46s  (elapsed   28s)
+        [anneal] step   800/2500  T=  1370K  Epot=   -624.2eV   38.1 steps/s  ETA    45s  (elapsed   29s)
+        [anneal] step   850/2500  T=  1205K  Epot=   -623.1eV   38.3 steps/s  ETA    43s  (elapsed   31s)
+        [anneal] step   900/2500  T=  1489K  Epot=   -625.7eV   38.2 steps/s  ETA    42s  (elapsed   32s)
+        [anneal] step   950/2500  T=  1254K  Epot=   -624.4eV   38.1 steps/s  ETA    41s  (elapsed   33s)
+        [anneal] step  1000/2500  T=  1245K  Epot=   -624.9eV   38.5 steps/s  ETA    39s  (elapsed   35s)
+        [anneal] step  1050/2500  T=  1366K  Epot=   -626.9eV   38.2 steps/s  ETA    38s  (elapsed   36s)
+        [anneal] step  1100/2500  T=  1172K  Epot=   -624.9eV   38.2 steps/s  ETA    37s  (elapsed   37s)
+        [anneal] step  1150/2500  T=  1131K  Epot=   -624.6eV   38.3 steps/s  ETA    35s  (elapsed   39s)
+        [anneal] step  1200/2500  T=  1307K  Epot=   -626.5eV   38.3 steps/s  ETA    34s  (elapsed   40s)
+        [anneal] step  1250/2500  T=  1043K  Epot=   -625.0eV   38.3 steps/s  ETA    33s  (elapsed   41s)
+        [anneal] step  1300/2500  T=  1190K  Epot=   -626.3eV   38.3 steps/s  ETA    31s  (elapsed   42s)
+        [anneal] step  1350/2500  T=   983K  Epot=   -624.1eV   38.2 steps/s  ETA    30s  (elapsed   44s)
+        [anneal] step  1400/2500  T=  1221K  Epot=   -625.8eV   38.0 steps/s  ETA    29s  (elapsed   45s)
+        [anneal] step  1450/2500  T=  1076K  Epot=   -624.8eV   38.3 steps/s  ETA    27s  (elapsed   46s)
+        [anneal] step  1500/2500  T=  1124K  Epot=   -625.2eV   38.3 steps/s  ETA    26s  (elapsed   48s)
+        [anneal] step  1550/2500  T=  1135K  Epot=   -625.7eV   38.3 steps/s  ETA    25s  (elapsed   49s)
+        [anneal] step  1600/2500  T=  1194K  Epot=   -626.2eV   38.4 steps/s  ETA    23s  (elapsed   50s)
+        [anneal] step  1650/2500  T=  1133K  Epot=   -625.7eV   37.5 steps/s  ETA    23s  (elapsed   52s)
+        [anneal] step  1700/2500  T=  1095K  Epot=   -624.9eV   38.3 steps/s  ETA    21s  (elapsed   53s)
+        [anneal] step  1750/2500  T=  1286K  Epot=   -626.7eV   38.3 steps/s  ETA    20s  (elapsed   54s)
+        [anneal] step  1800/2500  T=  1211K  Epot=   -625.6eV   38.3 steps/s  ETA    18s  (elapsed   56s)
+        [anneal] step  1850/2500  T=  1190K  Epot=   -626.5eV   38.3 steps/s  ETA    17s  (elapsed   57s)
+        [anneal] step  1900/2500  T=  1085K  Epot=   -625.5eV   38.3 steps/s  ETA    16s  (elapsed   58s)
+        [anneal] step  1950/2500  T=  1165K  Epot=   -626.5eV   38.2 steps/s  ETA    14s  (elapsed   59s)
+        [anneal] step  2000/2500  T=  1041K  Epot=   -625.4eV   37.9 steps/s  ETA    13s  (elapsed   61s)
+        [anneal] step  2050/2500  T=  1000K  Epot=   -624.5eV   38.3 steps/s  ETA    12s  (elapsed   62s)
+        [anneal] step  2100/2500  T=  1152K  Epot=   -625.8eV   38.3 steps/s  ETA    10s  (elapsed   63s)
+        [anneal] step  2150/2500  T=  1131K  Epot=   -625.2eV   38.4 steps/s  ETA     9s  (elapsed   65s)
+        [anneal] step  2200/2500  T=  1261K  Epot=   -625.9eV   38.3 steps/s  ETA     8s  (elapsed   66s)
+        [anneal] step  2250/2500  T=  1019K  Epot=   -624.1eV   38.3 steps/s  ETA     7s  (elapsed   67s)
+        [anneal] step  2300/2500  T=  1051K  Epot=   -625.2eV   38.2 steps/s  ETA     5s  (elapsed   69s)
+        [anneal] step  2350/2500  T=  1034K  Epot=   -625.5eV   38.2 steps/s  ETA     4s  (elapsed   70s)
+        [anneal] step  2400/2500  T=  1074K  Epot=   -625.7eV   38.2 steps/s  ETA     3s  (elapsed   71s)
+        [anneal] step  2450/2500  T=  1020K  Epot=   -625.9eV   38.3 steps/s  ETA     1s  (elapsed   73s)
+        [anneal] step  2500/2500  T=  1087K  Epot=   -626.5eV   38.3 steps/s  ETA     0s  (elapsed   74s)
+      [anneal] 1000K 5ps (2500 steps) done in 74s
+      [quench] 1000K -> 0K over 15 stages (5ps total)
+      [quench 1/15] starting 166 steps @ 933K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/166  T=  1087K  Epot=   -626.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 1/15] step    50/166  T=  1112K  Epot=   -626.2eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 1/15] step   100/166  T=  1157K  Epot=   -626.1eV   37.8 steps/s  ETA     2s  (elapsed    3s)
+        [quench 1/15] step   150/166  T=  1135K  Epot=   -626.1eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 1/15] 933K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 2/15] starting 166 steps @ 867K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/166  T=  1100K  Epot=   -625.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 2/15] step    50/166  T=  1188K  Epot=   -627.0eV   38.8 steps/s  ETA     3s  (elapsed    1s)
+        [quench 2/15] step   100/166  T=  1157K  Epot=   -626.1eV   37.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 2/15] step   150/166  T=  1214K  Epot=   -626.8eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 2/15] 867K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 3/15] starting 166 steps @ 800K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/166  T=  1109K  Epot=   -626.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 3/15] step    50/166  T=  1047K  Epot=   -626.1eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 3/15] step   100/166  T=  1047K  Epot=   -625.6eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 3/15] step   150/166  T=  1083K  Epot=   -626.1eV   38.4 steps/s  ETA     0s  (elapsed    4s)
+      [quench 3/15] 800K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 4/15] starting 166 steps @ 733K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/166  T=  1095K  Epot=   -626.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 4/15] step    50/166  T=  1013K  Epot=   -626.3eV   38.2 steps/s  ETA     3s  (elapsed    1s)
+        [quench 4/15] step   100/166  T=   931K  Epot=   -626.2eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 4/15] step   150/166  T=  1006K  Epot=   -627.1eV   38.4 steps/s  ETA     0s  (elapsed    4s)
+      [quench 4/15] 733K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 5/15] starting 166 steps @ 667K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/166  T=   805K  Epot=   -625.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 5/15] step    50/166  T=   963K  Epot=   -627.8eV   38.2 steps/s  ETA     3s  (elapsed    1s)
+        [quench 5/15] step   100/166  T=   946K  Epot=   -627.8eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 5/15] step   150/166  T=   832K  Epot=   -626.7eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 5/15] 667K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 6/15] starting 166 steps @ 600K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/166  T=   885K  Epot=   -627.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 6/15] step    50/166  T=   904K  Epot=   -627.6eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 6/15] step   100/166  T=   850K  Epot=   -627.5eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 6/15] step   150/166  T=   721K  Epot=   -627.6eV   38.4 steps/s  ETA     0s  (elapsed    4s)
+      [quench 6/15] 600K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 7/15] starting 166 steps @ 533K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/166  T=   774K  Epot=   -628.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 7/15] step    50/166  T=   786K  Epot=   -628.2eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 7/15] step   100/166  T=   695K  Epot=   -628.2eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 7/15] step   150/166  T=   696K  Epot=   -628.6eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 7/15] 533K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 8/15] starting 166 steps @ 467K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/166  T=  1231K  Epot=   -629.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 8/15] step    50/166  T=   883K  Epot=   -627.0eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 8/15] step   100/166  T=   885K  Epot=   -627.8eV   38.2 steps/s  ETA     2s  (elapsed    3s)
+        [quench 8/15] step   150/166  T=   826K  Epot=   -628.0eV   37.9 steps/s  ETA     0s  (elapsed    4s)
+      [quench 8/15] 467K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 9/15] starting 166 steps @ 400K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/166  T=   671K  Epot=   -627.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 9/15] step    50/166  T=   823K  Epot=   -629.1eV   37.8 steps/s  ETA     3s  (elapsed    1s)
+        [quench 9/15] step   100/166  T=   659K  Epot=   -628.8eV   38.0 steps/s  ETA     2s  (elapsed    3s)
+        [quench 9/15] step   150/166  T=   704K  Epot=   -629.5eV   38.1 steps/s  ETA     0s  (elapsed    4s)
+      [quench 9/15] 400K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 10/15] starting 166 steps @ 333K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/166  T=   591K  Epot=   -628.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 10/15] step    50/166  T=   594K  Epot=   -629.3eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 10/15] step   100/166  T=   586K  Epot=   -629.4eV   38.2 steps/s  ETA     2s  (elapsed    3s)
+        [quench 10/15] step   150/166  T=   556K  Epot=   -629.6eV   38.2 steps/s  ETA     0s  (elapsed    4s)
+      [quench 10/15] 333K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 11/15] starting 166 steps @ 267K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/166  T=   556K  Epot=   -629.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 11/15] step    50/166  T=   493K  Epot=   -629.7eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 11/15] step   100/166  T=   484K  Epot=   -629.9eV   38.2 steps/s  ETA     2s  (elapsed    3s)
+        [quench 11/15] step   150/166  T=   502K  Epot=   -630.6eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 11/15] 267K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 12/15] starting 166 steps @ 200K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/166  T=   496K  Epot=   -630.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 12/15] step    50/166  T=   417K  Epot=   -630.4eV   37.8 steps/s  ETA     3s  (elapsed    1s)
+        [quench 12/15] step   100/166  T=   450K  Epot=   -631.1eV   38.6 steps/s  ETA     2s  (elapsed    3s)
+        [quench 12/15] step   150/166  T=   450K  Epot=   -631.8eV   38.0 steps/s  ETA     0s  (elapsed    4s)
+      [quench 12/15] 200K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 13/15] starting 166 steps @ 133K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/166  T=   400K  Epot=   -631.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 13/15] step    50/166  T=   334K  Epot=   -631.4eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 13/15] step   100/166  T=   344K  Epot=   -631.9eV   38.2 steps/s  ETA     2s  (elapsed    3s)
+        [quench 13/15] step   150/166  T=   316K  Epot=   -632.2eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 13/15] 133K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 14/15] starting 166 steps @ 67K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/166  T=   313K  Epot=   -632.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 14/15] step    50/166  T=   335K  Epot=   -632.9eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 14/15] step   100/166  T=   272K  Epot=   -632.8eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 14/15] step   150/166  T=   256K  Epot=   -633.1eV   38.2 steps/s  ETA     0s  (elapsed    4s)
+      [quench 14/15] 67K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 15/15] starting 166 steps @ 1K (87 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/166  T=   243K  Epot=   -633.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 15/15] step    50/166  T=   225K  Epot=   -633.3eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 15/15] step   100/166  T=   182K  Epot=   -633.2eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 15/15] step   150/166  T=   179K  Epot=   -633.5eV   37.8 steps/s  ETA     0s  (elapsed    4s)
+      [quench 15/15] 1K 0.3333333333333333ps (166 steps) done in 4s
+      [anneal relax] BFGS (<= 300 steps, fmax=0.05) ...
+      Step     Time          Energy          fmax
+BFGS:    0 14:47:23     -633.734985        2.834993
+BFGS:    1 14:47:23     -634.374268        1.146555
+BFGS:    2 14:47:23     -634.560303        0.730310
+BFGS:    3 14:47:23     -634.743042        0.689741
+BFGS:    4 14:47:23     -634.876160        0.508339
+BFGS:    5 14:47:23     -634.958862        0.364386
+BFGS:    6 14:47:24     -635.010254        0.322983
+BFGS:    7 14:47:24     -635.044067        0.287937
+BFGS:    8 14:47:24     -635.071716        0.272032
+BFGS:    9 14:47:24     -635.094849        0.262145
+BFGS:   10 14:47:24     -635.111572        0.194953
+BFGS:   11 14:47:24     -635.124207        0.175382
+BFGS:   12 14:47:24     -635.136108        0.192304
+BFGS:   13 14:47:24     -635.148865        0.195658
+BFGS:   14 14:47:24     -635.161194        0.177436
+BFGS:   15 14:47:24     -635.170898        0.136147
+BFGS:   16 14:47:24     -635.178528        0.132359
+BFGS:   17 14:47:24     -635.185913        0.152981
+BFGS:   18 14:47:24     -635.193176        0.158391
+BFGS:   19 14:47:24     -635.199219        0.123846
+BFGS:   20 14:47:24     -635.203857        0.102704
+BFGS:   21 14:47:24     -635.208252        0.104853
+BFGS:   22 14:47:24     -635.212830        0.127974
+BFGS:   23 14:47:24     -635.217285        0.097577
+BFGS:   24 14:47:24     -635.220337        0.077268
+BFGS:   25 14:47:24     -635.222473        0.067583
+BFGS:   26 14:47:24     -635.224609        0.088029
+BFGS:   27 14:47:24     -635.227478        0.095407
+BFGS:   28 14:47:24     -635.230042        0.070383
+BFGS:   29 14:47:24     -635.231750        0.059526
+BFGS:   30 14:47:24     -635.232788        0.055009
+BFGS:   31 14:47:24     -635.234009        0.056433
+BFGS:   32 14:47:24     -635.235168        0.053253
+BFGS:   33 14:47:24     -635.236206        0.050555
+BFGS:   34 14:47:24     -635.236938        0.046353
+      [anneal relax] BFGS stopped after 34 steps
+[SiO2] bulk 0 term 0: {'O_bridge': np.float64(8.77), 'OH': np.float64(7.17)} | strained=0 R=0.57 | REJECT (OH density 7.17 outside [5.10,7.10] nm^-2; O_bridge density 8.77 outside [1.05,4.55] nm^-2; OH sites clumped (R=0.57 < 0.75))
+    [cache] loaded bulk ← bulk_cache/SiO2_bulk_d604fa70de560f10.xyz (72 atoms)
+    anneal + relax (88 atoms)...
+      [anneal] starting 2500 steps @ 1000K (88 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/2500  T=   981K  Epot=   -600.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/2500  T=  2257K  Epot=   -612.5eV   38.3 steps/s  ETA    64s  (elapsed    1s)
+        [anneal] step   100/2500  T=  2003K  Epot=   -613.4eV   38.3 steps/s  ETA    63s  (elapsed    3s)
+        [anneal] step   150/2500  T=  1761K  Epot=   -613.0eV   38.2 steps/s  ETA    61s  (elapsed    4s)
+        [anneal] step   200/2500  T=  1892K  Epot=   -614.8eV   38.1 steps/s  ETA    60s  (elapsed    5s)
+        [anneal] step   250/2500  T=  1924K  Epot=   -615.6eV   38.3 steps/s  ETA    59s  (elapsed    7s)
+        [anneal] step   300/2500  T=  1902K  Epot=   -615.9eV   38.3 steps/s  ETA    57s  (elapsed    8s)
+        [anneal] step   350/2500  T=  2018K  Epot=   -617.2eV   38.3 steps/s  ETA    56s  (elapsed    9s)
+        [anneal] step   400/2500  T=  1762K  Epot=   -616.0eV   38.5 steps/s  ETA    55s  (elapsed   10s)
+        [anneal] step   450/2500  T=  1592K  Epot=   -616.2eV   38.4 steps/s  ETA    53s  (elapsed   12s)
+        [anneal] step   500/2500  T=  1630K  Epot=   -617.7eV   38.5 steps/s  ETA    52s  (elapsed   13s)
+        [anneal] step   550/2500  T=  1390K  Epot=   -618.8eV   38.2 steps/s  ETA    51s  (elapsed   14s)
+        [anneal] step   600/2500  T=  1367K  Epot=   -619.8eV   38.5 steps/s  ETA    49s  (elapsed   16s)
+        [anneal] step   650/2500  T=  1393K  Epot=   -620.9eV   38.4 steps/s  ETA    48s  (elapsed   17s)
+        [anneal] step   700/2500  T=  1264K  Epot=   -619.9eV   38.3 steps/s  ETA    47s  (elapsed   18s)
+        [anneal] step   750/2500  T=  1280K  Epot=   -620.8eV   38.3 steps/s  ETA    46s  (elapsed   20s)
+        [anneal] step   800/2500  T=  1372K  Epot=   -622.1eV   38.3 steps/s  ETA    44s  (elapsed   21s)
+        [anneal] step   850/2500  T=  1449K  Epot=   -623.0eV   38.4 steps/s  ETA    43s  (elapsed   22s)
+        [anneal] step   900/2500  T=  1280K  Epot=   -621.8eV   38.5 steps/s  ETA    42s  (elapsed   24s)
+        [anneal] step   950/2500  T=  1171K  Epot=   -621.0eV   38.4 steps/s  ETA    40s  (elapsed   25s)
+        [anneal] step  1000/2500  T=  1282K  Epot=   -621.3eV   38.4 steps/s  ETA    39s  (elapsed   26s)
+        [anneal] step  1050/2500  T=  1208K  Epot=   -621.4eV   38.5 steps/s  ETA    38s  (elapsed   27s)
+        [anneal] step  1100/2500  T=  1183K  Epot=   -622.6eV   38.2 steps/s  ETA    37s  (elapsed   29s)
+        [anneal] step  1150/2500  T=  1180K  Epot=   -621.9eV   37.6 steps/s  ETA    36s  (elapsed   30s)
+        [anneal] step  1200/2500  T=  1221K  Epot=   -621.6eV   38.5 steps/s  ETA    34s  (elapsed   31s)
+        [anneal] step  1250/2500  T=  1196K  Epot=   -621.8eV   38.4 steps/s  ETA    33s  (elapsed   33s)
+        [anneal] step  1300/2500  T=  1120K  Epot=   -621.3eV   38.3 steps/s  ETA    31s  (elapsed   34s)
+        [anneal] step  1350/2500  T=  1299K  Epot=   -622.2eV   38.5 steps/s  ETA    30s  (elapsed   35s)
+        [anneal] step  1400/2500  T=  1344K  Epot=   -623.0eV   38.5 steps/s  ETA    29s  (elapsed   37s)
+        [anneal] step  1450/2500  T=  1206K  Epot=   -622.4eV   38.4 steps/s  ETA    27s  (elapsed   38s)
+        [anneal] step  1500/2500  T=  1208K  Epot=   -623.1eV   38.4 steps/s  ETA    26s  (elapsed   39s)
+        [anneal] step  1550/2500  T=  1100K  Epot=   -622.2eV   38.3 steps/s  ETA    25s  (elapsed   40s)
+        [anneal] step  1600/2500  T=  1138K  Epot=   -623.4eV   38.4 steps/s  ETA    23s  (elapsed   42s)
+        [anneal] step  1650/2500  T=  1109K  Epot=   -623.4eV   38.4 steps/s  ETA    22s  (elapsed   43s)
+        [anneal] step  1700/2500  T=  1149K  Epot=   -624.0eV   38.6 steps/s  ETA    21s  (elapsed   44s)
+        [anneal] step  1750/2500  T=  1176K  Epot=   -624.4eV   38.1 steps/s  ETA    20s  (elapsed   46s)
+        [anneal] step  1800/2500  T=  1005K  Epot=   -622.4eV   38.2 steps/s  ETA    18s  (elapsed   47s)
+        [anneal] step  1850/2500  T=  1015K  Epot=   -622.7eV   38.5 steps/s  ETA    17s  (elapsed   48s)
+        [anneal] step  1900/2500  T=  1038K  Epot=   -623.5eV   38.3 steps/s  ETA    16s  (elapsed   50s)
+        [anneal] step  1950/2500  T=  1081K  Epot=   -623.7eV   38.3 steps/s  ETA    14s  (elapsed   51s)
+        [anneal] step  2000/2500  T=   998K  Epot=   -623.4eV   38.4 steps/s  ETA    13s  (elapsed   52s)
+        [anneal] step  2050/2500  T=  1031K  Epot=   -623.0eV   38.4 steps/s  ETA    12s  (elapsed   53s)
+        [anneal] step  2100/2500  T=  1001K  Epot=   -623.3eV   38.5 steps/s  ETA    10s  (elapsed   55s)
+        [anneal] step  2150/2500  T=  1016K  Epot=   -624.3eV   38.5 steps/s  ETA     9s  (elapsed   56s)
+        [anneal] step  2200/2500  T=  1026K  Epot=   -624.1eV   38.5 steps/s  ETA     8s  (elapsed   57s)
+        [anneal] step  2250/2500  T=   958K  Epot=   -624.6eV   37.8 steps/s  ETA     7s  (elapsed   59s)
+        [anneal] step  2300/2500  T=  1057K  Epot=   -624.8eV   38.6 steps/s  ETA     5s  (elapsed   60s)
+        [anneal] step  2350/2500  T=  1137K  Epot=   -625.2eV   38.4 steps/s  ETA     4s  (elapsed   61s)
+        [anneal] step  2400/2500  T=   881K  Epot=   -623.3eV   38.1 steps/s  ETA     3s  (elapsed   63s)
+        [anneal] step  2450/2500  T=   986K  Epot=   -624.4eV   38.3 steps/s  ETA     1s  (elapsed   64s)
+        [anneal] step  2500/2500  T=   955K  Epot=   -624.2eV   38.3 steps/s  ETA     0s  (elapsed   65s)
+      [anneal] 1000K 5ps (2500 steps) done in 65s
+      [quench] 1000K -> 0K over 15 stages (5ps total)
+      [quench 1/15] starting 166 steps @ 933K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/166  T=   955K  Epot=   -624.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 1/15] step    50/166  T=   875K  Epot=   -623.8eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 1/15] step   100/166  T=   983K  Epot=   -625.4eV   38.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 1/15] step   150/166  T=   830K  Epot=   -624.3eV   38.4 steps/s  ETA     0s  (elapsed    4s)
+      [quench 1/15] 933K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 2/15] starting 166 steps @ 867K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/166  T=   806K  Epot=   -624.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 2/15] step    50/166  T=   843K  Epot=   -624.7eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 2/15] step   100/166  T=   973K  Epot=   -624.7eV   38.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 2/15] step   150/166  T=   980K  Epot=   -624.3eV   38.5 steps/s  ETA     0s  (elapsed    4s)
+      [quench 2/15] 867K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 3/15] starting 166 steps @ 800K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/166  T=  1012K  Epot=   -624.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 3/15] step    50/166  T=   985K  Epot=   -624.3eV   38.6 steps/s  ETA     3s  (elapsed    1s)
+        [quench 3/15] step   100/166  T=   932K  Epot=   -624.1eV   38.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 3/15] step   150/166  T=   853K  Epot=   -624.0eV   37.9 steps/s  ETA     0s  (elapsed    4s)
+      [quench 3/15] 800K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 4/15] starting 166 steps @ 733K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/166  T=  1021K  Epot=   -625.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 4/15] step    50/166  T=  1016K  Epot=   -625.5eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 4/15] step   100/166  T=   884K  Epot=   -624.5eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 4/15] step   150/166  T=   841K  Epot=   -624.7eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 4/15] 733K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 5/15] starting 166 steps @ 667K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/166  T=   781K  Epot=   -624.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 5/15] step    50/166  T=   874K  Epot=   -625.6eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 5/15] step   100/166  T=   744K  Epot=   -624.9eV   38.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 5/15] step   150/166  T=   713K  Epot=   -625.5eV   38.4 steps/s  ETA     0s  (elapsed    4s)
+      [quench 5/15] 667K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 6/15] starting 166 steps @ 600K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/166  T=   831K  Epot=   -626.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 6/15] step    50/166  T=   688K  Epot=   -626.1eV   37.5 steps/s  ETA     3s  (elapsed    1s)
+        [quench 6/15] step   100/166  T=   825K  Epot=   -627.4eV   38.7 steps/s  ETA     2s  (elapsed    3s)
+        [quench 6/15] step   150/166  T=   709K  Epot=   -627.2eV   38.1 steps/s  ETA     0s  (elapsed    4s)
+      [quench 6/15] 600K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 7/15] starting 166 steps @ 533K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/166  T=   707K  Epot=   -627.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 7/15] step    50/166  T=   720K  Epot=   -627.3eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 7/15] step   100/166  T=   662K  Epot=   -626.8eV   37.9 steps/s  ETA     2s  (elapsed    3s)
+        [quench 7/15] step   150/166  T=   578K  Epot=   -625.8eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 7/15] 533K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 8/15] starting 166 steps @ 467K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/166  T=  1024K  Epot=   -626.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 8/15] step    50/166  T=   609K  Epot=   -623.1eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 8/15] step   100/166  T=   921K  Epot=   -625.6eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 8/15] step   150/166  T=   784K  Epot=   -625.1eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 8/15] 467K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 9/15] starting 166 steps @ 400K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/166  T=   743K  Epot=   -624.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 9/15] step    50/166  T=   721K  Epot=   -625.6eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 9/15] step   100/166  T=   734K  Epot=   -625.9eV   38.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 9/15] step   150/166  T=   768K  Epot=   -626.2eV   38.4 steps/s  ETA     0s  (elapsed    4s)
+      [quench 9/15] 400K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 10/15] starting 166 steps @ 333K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/166  T=   606K  Epot=   -624.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 10/15] step    50/166  T=   702K  Epot=   -626.5eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 10/15] step   100/166  T=   609K  Epot=   -626.1eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 10/15] step   150/166  T=   595K  Epot=   -627.0eV   38.2 steps/s  ETA     0s  (elapsed    4s)
+      [quench 10/15] 333K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 11/15] starting 166 steps @ 267K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/166  T=   614K  Epot=   -627.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 11/15] step    50/166  T=   545K  Epot=   -627.6eV   37.7 steps/s  ETA     3s  (elapsed    1s)
+        [quench 11/15] step   100/166  T=   559K  Epot=   -628.0eV   38.2 steps/s  ETA     2s  (elapsed    3s)
+        [quench 11/15] step   150/166  T=   486K  Epot=   -628.0eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 11/15] 267K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 12/15] starting 166 steps @ 200K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/166  T=   474K  Epot=   -628.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 12/15] step    50/166  T=   408K  Epot=   -627.8eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 12/15] step   100/166  T=   495K  Epot=   -629.0eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 12/15] step   150/166  T=   397K  Epot=   -628.6eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 12/15] 200K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 13/15] starting 166 steps @ 133K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/166  T=   424K  Epot=   -628.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 13/15] step    50/166  T=   425K  Epot=   -629.3eV   38.1 steps/s  ETA     3s  (elapsed    1s)
+        [quench 13/15] step   100/166  T=   367K  Epot=   -629.3eV   38.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 13/15] step   150/166  T=   325K  Epot=   -629.4eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 13/15] 133K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 14/15] starting 166 steps @ 67K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/166  T=   333K  Epot=   -629.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 14/15] step    50/166  T=   330K  Epot=   -629.9eV   38.4 steps/s  ETA     3s  (elapsed    1s)
+        [quench 14/15] step   100/166  T=   330K  Epot=   -630.2eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 14/15] step   150/166  T=   308K  Epot=   -630.4eV   37.7 steps/s  ETA     0s  (elapsed    4s)
+      [quench 14/15] 67K 0.3333333333333333ps (166 steps) done in 4s
+      [quench 15/15] starting 166 steps @ 1K (88 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/166  T=   290K  Epot=   -630.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 15/15] step    50/166  T=   245K  Epot=   -630.5eV   38.3 steps/s  ETA     3s  (elapsed    1s)
+        [quench 15/15] step   100/166  T=   206K  Epot=   -630.6eV   38.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 15/15] step   150/166  T=   192K  Epot=   -630.8eV   38.3 steps/s  ETA     0s  (elapsed    4s)
+      [quench 15/15] 1K 0.3333333333333333ps (166 steps) done in 4s
+      [anneal relax] BFGS (<= 300 steps, fmax=0.05) ...
+      Step     Time          Energy          fmax
+BFGS:    0 14:49:35     -630.902466        3.150134
+BFGS:    1 14:49:35     -631.655396        1.874481
+BFGS:    2 14:49:35     -631.870789        0.724989
+BFGS:    3 14:49:35     -632.055847        0.595277
+BFGS:    4 14:49:35     -632.178589        0.585315
+BFGS:    5 14:49:35     -632.247131        0.411638
+BFGS:    6 14:49:35     -632.302429        0.345654
+BFGS:    7 14:49:35     -632.348206        0.332629
+BFGS:    8 14:49:35     -632.387146        0.399968
+BFGS:    9 14:49:35     -632.417908        0.312523
+BFGS:   10 14:49:35     -632.441345        0.209172
+BFGS:   11 14:49:35     -632.459656        0.177126
+BFGS:   12 14:49:35     -632.475586        0.237050
+BFGS:   13 14:49:35     -632.489319        0.233296
+BFGS:   14 14:49:35     -632.501770        0.226000
+BFGS:   15 14:49:35     -632.512695        0.203187
+BFGS:   16 14:49:35     -632.522522        0.154069
+BFGS:   17 14:49:35     -632.531128        0.177107
+BFGS:   18 14:49:35     -632.539062        0.145480
+BFGS:   19 14:49:35     -632.546021        0.116138
+BFGS:   20 14:49:35     -632.553162        0.152280
+BFGS:   21 14:49:35     -632.559875        0.168781
+BFGS:   22 14:49:35     -632.565796        0.126560
+BFGS:   23 14:49:35     -632.570862        0.126777
+BFGS:   24 14:49:35     -632.576294        0.126559
+BFGS:   25 14:49:35     -632.581116        0.171454
+BFGS:   26 14:49:36     -632.586853        0.129145
+BFGS:   27 14:49:36     -632.591675        0.121791
+BFGS:   28 14:49:36     -632.596619        0.118373
+BFGS:   29 14:49:36     -632.600586        0.152136
+BFGS:   30 14:49:36     -632.604919        0.124415
+BFGS:   31 14:49:36     -632.608154        0.124802
+BFGS:   32 14:49:36     -632.611816        0.131204
+BFGS:   33 14:49:36     -632.615295        0.140431
+BFGS:   34 14:49:36     -632.619812        0.125549
+BFGS:   35 14:49:36     -632.624023        0.116157
+BFGS:   36 14:49:36     -632.628296        0.110260
+BFGS:   37 14:49:36     -632.632080        0.134790
+BFGS:   38 14:49:36     -632.636536        0.144080
+BFGS:   39 14:49:36     -632.640808        0.163482
+BFGS:   40 14:49:36     -632.645935        0.140940
+BFGS:   41 14:49:36     -632.650391        0.108196
+BFGS:   42 14:49:36     -632.654053        0.112199
+BFGS:   43 14:49:36     -632.657776        0.103317
+BFGS:   44 14:49:36     -632.661560        0.131244
+BFGS:   45 14:49:36     -632.665161        0.125553
+BFGS:   46 14:49:36     -632.668884        0.101046
+BFGS:   47 14:49:36     -632.671753        0.097352
+BFGS:   48 14:49:36     -632.675659        0.098792
+BFGS:   49 14:49:36     -632.679321        0.136665
+BFGS:   50 14:49:36     -632.683228        0.118111
+BFGS:   51 14:49:36     -632.686157        0.167533
+BFGS:   52 14:49:36     -632.689026        0.127342
+BFGS:   53 14:49:36     -632.692017        0.108769
+BFGS:   54 14:49:36     -632.695984        0.124001
+BFGS:   55 14:49:36     -632.698425        0.100587
+BFGS:   56 14:49:36     -632.701965        0.121805
+BFGS:   57 14:49:36     -632.705200        0.109544
+BFGS:   58 14:49:36     -632.708130        0.177178
+BFGS:   59 14:49:37     -632.710693        0.112917
+BFGS:   60 14:49:37     -632.713379        0.123589
+BFGS:   61 14:49:37     -632.717224        0.129969
+BFGS:   62 14:49:37     -632.720215        0.117713
+BFGS:   63 14:49:37     -632.724976        0.195301
+BFGS:   64 14:49:37     -632.728821        0.169227
+BFGS:   65 14:49:37     -632.731140        0.369293
+BFGS:   66 14:49:37     -632.735962        0.114772
+BFGS:   67 14:49:37     -632.739197        0.099709
+BFGS:   68 14:49:37     -632.742859        0.097209
+BFGS:   69 14:49:37     -632.745300        0.114472
+BFGS:   70 14:49:37     -632.747803        0.096371
+BFGS:   71 14:49:37     -632.750427        0.100822
+BFGS:   72 14:49:37     -632.752563        0.089273
+BFGS:   73 14:49:37     -632.754272        0.148542
+BFGS:   74 14:49:37     -632.755798        0.092529
+BFGS:   75 14:49:37     -632.757507        0.063644
+BFGS:   76 14:49:37     -632.759521        0.090170
+BFGS:   77 14:49:37     -632.760986        0.102273
+BFGS:   78 14:49:37     -632.762451        0.078220
+BFGS:   79 14:49:37     -632.763550        0.071272
+BFGS:   80 14:49:37     -632.764832        0.069828
+BFGS:   81 14:49:37     -632.765991        0.051886
+BFGS:   82 14:49:37     -632.766968        0.084696
+BFGS:   83 14:49:37     -632.767578        0.049412
+      [anneal relax] BFGS stopped after 83 steps
+[SiO2] bulk 0 term 1: {'O_bridge': np.float64(8.77), 'OH': np.float64(4.78)} | strained=0 R=0.87 | REJECT (OH density 4.78 outside [5.10,7.10] nm^-2; O_bridge density 8.77 outside [1.05,4.55] nm^-2)
+  saved 0 SiO2 surface(s)
+
+[Phase 1] Building SiNx surfaces (full mode)...
+    [cache] loaded bulk ← bulk_cache/SiNx_bulk_723339c9311dd317.xyz (104 atoms)
+    anneal + relax (193 atoms)...
+      [anneal] starting 2500 steps @ 1000K (193 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/2500  T=   527K  Epot=  -1022.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/2500  T=  3367K  Epot=  -1084.3eV   28.7 steps/s  ETA    85s  (elapsed    2s)
+        [anneal] step   100/2500  T=  4025K  Epot=  -1102.0eV   29.0 steps/s  ETA    83s  (elapsed    4s)
+        [anneal] step   150/2500  T=  3390K  Epot=  -1100.0eV   28.9 steps/s  ETA    81s  (elapsed    5s)
+        [anneal] step   200/2500  T=  3526K  Epot=  -1110.5eV   29.6 steps/s  ETA    78s  (elapsed    7s)
+        [anneal] step   250/2500  T=  2905K  Epot=  -1108.2eV   28.6 steps/s  ETA    79s  (elapsed    9s)
+        [anneal] step   300/2500  T=  3004K  Epot=  -1117.1eV   28.8 steps/s  ETA    76s  (elapsed   10s)
+        [anneal] step   350/2500  T=  3080K  Epot=  -1125.9eV   28.8 steps/s  ETA    75s  (elapsed   12s)
+        [anneal] step   400/2500  T=  2464K  Epot=  -1122.8eV   28.2 steps/s  ETA    74s  (elapsed   14s)
+        [anneal] step   450/2500  T=  2454K  Epot=  -1130.1eV   28.3 steps/s  ETA    72s  (elapsed   16s)
+        [anneal] step   500/2500  T=  2379K  Epot=  -1134.2eV   28.7 steps/s  ETA    70s  (elapsed   17s)
+        [anneal] step   550/2500  T=  2445K  Epot=  -1140.4eV   29.0 steps/s  ETA    67s  (elapsed   19s)
+        [anneal] step   600/2500  T=  2168K  Epot=  -1139.1eV   29.3 steps/s  ETA    65s  (elapsed   21s)
+        [anneal] step   650/2500  T=  2256K  Epot=  -1145.2eV   29.8 steps/s  ETA    62s  (elapsed   23s)
+        [anneal] step   700/2500  T=  2052K  Epot=  -1146.4eV   29.4 steps/s  ETA    61s  (elapsed   24s)
+        [anneal] step   750/2500  T=  2174K  Epot=  -1152.1eV   29.7 steps/s  ETA    59s  (elapsed   26s)
+        [anneal] step   800/2500  T=  2093K  Epot=  -1154.8eV   29.5 steps/s  ETA    58s  (elapsed   28s)
+        [anneal] step   850/2500  T=  1782K  Epot=  -1153.8eV   29.3 steps/s  ETA    56s  (elapsed   29s)
+        [anneal] step   900/2500  T=  1666K  Epot=  -1154.6eV   29.8 steps/s  ETA    54s  (elapsed   31s)
+        [anneal] step   950/2500  T=  1851K  Epot=  -1159.8eV   29.9 steps/s  ETA    52s  (elapsed   33s)
+        [anneal] step  1000/2500  T=  1820K  Epot=  -1161.1eV   29.9 steps/s  ETA    50s  (elapsed   34s)
+        [anneal] step  1050/2500  T=  1800K  Epot=  -1162.8eV   29.7 steps/s  ETA    49s  (elapsed   36s)
+        [anneal] step  1100/2500  T=  1718K  Epot=  -1163.9eV   29.7 steps/s  ETA    47s  (elapsed   38s)
+        [anneal] step  1150/2500  T=  1599K  Epot=  -1166.5eV   29.3 steps/s  ETA    46s  (elapsed   39s)
+        [anneal] step  1200/2500  T=  1415K  Epot=  -1165.8eV   29.1 steps/s  ETA    45s  (elapsed   41s)
+        [anneal] step  1250/2500  T=  1435K  Epot=  -1166.9eV   28.9 steps/s  ETA    43s  (elapsed   43s)
+        [anneal] step  1300/2500  T=  1382K  Epot=  -1167.4eV   29.2 steps/s  ETA    41s  (elapsed   45s)
+        [anneal] step  1350/2500  T=  1437K  Epot=  -1168.7eV   29.4 steps/s  ETA    39s  (elapsed   46s)
+        [anneal] step  1400/2500  T=  1506K  Epot=  -1171.2eV   29.7 steps/s  ETA    37s  (elapsed   48s)
+        [anneal] step  1450/2500  T=  1290K  Epot=  -1168.8eV   29.6 steps/s  ETA    35s  (elapsed   50s)
+        [anneal] step  1500/2500  T=  1382K  Epot=  -1171.3eV   29.8 steps/s  ETA    34s  (elapsed   51s)
+        [anneal] step  1550/2500  T=  1463K  Epot=  -1173.2eV   29.9 steps/s  ETA    32s  (elapsed   53s)
+        [anneal] step  1600/2500  T=  1335K  Epot=  -1172.5eV   29.8 steps/s  ETA    30s  (elapsed   55s)
+        [anneal] step  1650/2500  T=  1167K  Epot=  -1170.1eV   29.8 steps/s  ETA    29s  (elapsed   56s)
+        [anneal] step  1700/2500  T=  1241K  Epot=  -1172.2eV   29.9 steps/s  ETA    27s  (elapsed   58s)
+        [anneal] step  1750/2500  T=  1229K  Epot=  -1173.9eV   29.9 steps/s  ETA    25s  (elapsed   60s)
+        [anneal] step  1800/2500  T=  1292K  Epot=  -1175.0eV   29.6 steps/s  ETA    24s  (elapsed   61s)
+        [anneal] step  1850/2500  T=  1150K  Epot=  -1174.8eV   29.4 steps/s  ETA    22s  (elapsed   63s)
+        [anneal] step  1900/2500  T=  1130K  Epot=  -1176.8eV   28.3 steps/s  ETA    21s  (elapsed   65s)
+        [anneal] step  1950/2500  T=  1095K  Epot=  -1176.7eV   29.1 steps/s  ETA    19s  (elapsed   67s)
+        [anneal] step  2000/2500  T=  1157K  Epot=  -1177.9eV   29.2 steps/s  ETA    17s  (elapsed   68s)
+        [anneal] step  2050/2500  T=  1036K  Epot=  -1177.4eV   29.4 steps/s  ETA    15s  (elapsed   70s)
+        [anneal] step  2100/2500  T=  1008K  Epot=  -1177.6eV   29.2 steps/s  ETA    14s  (elapsed   72s)
+        [anneal] step  2150/2500  T=   970K  Epot=  -1177.9eV   29.5 steps/s  ETA    12s  (elapsed   73s)
+        [anneal] step  2200/2500  T=  1011K  Epot=  -1179.2eV   29.5 steps/s  ETA    10s  (elapsed   75s)
+        [anneal] step  2250/2500  T=  1077K  Epot=  -1179.3eV   29.6 steps/s  ETA     8s  (elapsed   77s)
+        [anneal] step  2300/2500  T=   984K  Epot=  -1178.1eV   29.3 steps/s  ETA     7s  (elapsed   79s)
+        [anneal] step  2350/2500  T=  1033K  Epot=  -1179.2eV   29.5 steps/s  ETA     5s  (elapsed   80s)
+        [anneal] step  2400/2500  T=  1078K  Epot=  -1179.5eV   29.6 steps/s  ETA     3s  (elapsed   82s)
+        [anneal] step  2450/2500  T=  1034K  Epot=  -1178.7eV   29.4 steps/s  ETA     2s  (elapsed   84s)
+        [anneal] step  2500/2500  T=   976K  Epot=  -1177.7eV   29.6 steps/s  ETA     0s  (elapsed   85s)
+      [anneal] 1000K 5ps (2500 steps) done in 85s
+      [quench] 1000K -> 0K over 15 stages (5ps total)
+      [quench 1/15] starting 166 steps @ 933K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/166  T=   976K  Epot=  -1177.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 1/15] step    50/166  T=   988K  Epot=  -1177.9eV   29.6 steps/s  ETA     4s  (elapsed    2s)
+        [quench 1/15] step   100/166  T=   944K  Epot=  -1177.3eV   29.8 steps/s  ETA     2s  (elapsed    3s)
+        [quench 1/15] step   150/166  T=  1065K  Epot=  -1178.8eV   29.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 1/15] 933K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 2/15] starting 166 steps @ 867K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/166  T=  1015K  Epot=  -1177.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 2/15] step    50/166  T=   957K  Epot=  -1178.1eV   29.9 steps/s  ETA     4s  (elapsed    2s)
+        [quench 2/15] step   100/166  T=   985K  Epot=  -1179.2eV   29.8 steps/s  ETA     2s  (elapsed    3s)
+        [quench 2/15] step   150/166  T=  1062K  Epot=  -1180.8eV   29.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 2/15] 867K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 3/15] starting 166 steps @ 800K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/166  T=   938K  Epot=  -1179.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 3/15] step    50/166  T=   972K  Epot=  -1180.2eV   29.9 steps/s  ETA     4s  (elapsed    2s)
+        [quench 3/15] step   100/166  T=   962K  Epot=  -1181.4eV   29.9 steps/s  ETA     2s  (elapsed    3s)
+        [quench 3/15] step   150/166  T=   884K  Epot=  -1180.0eV   29.9 steps/s  ETA     1s  (elapsed    5s)
+      [quench 3/15] 800K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 4/15] starting 166 steps @ 733K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/166  T=   944K  Epot=  -1180.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 4/15] step    50/166  T=   807K  Epot=  -1180.2eV   29.3 steps/s  ETA     4s  (elapsed    2s)
+        [quench 4/15] step   100/166  T=   870K  Epot=  -1180.9eV   29.6 steps/s  ETA     2s  (elapsed    3s)
+        [quench 4/15] step   150/166  T=   855K  Epot=  -1181.4eV   29.7 steps/s  ETA     1s  (elapsed    5s)
+      [quench 4/15] 733K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 5/15] starting 166 steps @ 667K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/166  T=   901K  Epot=  -1182.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 5/15] step    50/166  T=   810K  Epot=  -1180.3eV   29.6 steps/s  ETA     4s  (elapsed    2s)
+        [quench 5/15] step   100/166  T=   735K  Epot=  -1180.4eV   29.7 steps/s  ETA     2s  (elapsed    3s)
+        [quench 5/15] step   150/166  T=   785K  Epot=  -1181.0eV   29.7 steps/s  ETA     1s  (elapsed    5s)
+      [quench 5/15] 667K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 6/15] starting 166 steps @ 600K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/166  T=   767K  Epot=  -1181.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 6/15] step    50/166  T=   813K  Epot=  -1183.3eV   29.6 steps/s  ETA     4s  (elapsed    2s)
+        [quench 6/15] step   100/166  T=   713K  Epot=  -1182.1eV   29.6 steps/s  ETA     2s  (elapsed    3s)
+        [quench 6/15] step   150/166  T=   764K  Epot=  -1183.5eV   29.5 steps/s  ETA     1s  (elapsed    5s)
+      [quench 6/15] 600K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 7/15] starting 166 steps @ 533K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/166  T=   690K  Epot=  -1182.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 7/15] step    50/166  T=   731K  Epot=  -1183.8eV   29.8 steps/s  ETA     4s  (elapsed    2s)
+        [quench 7/15] step   100/166  T=   693K  Epot=  -1183.2eV   29.9 steps/s  ETA     2s  (elapsed    3s)
+        [quench 7/15] step   150/166  T=   714K  Epot=  -1183.3eV   29.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 7/15] 533K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 8/15] starting 166 steps @ 467K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/166  T=  1770K  Epot=  -1183.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 8/15] step    50/166  T=  1199K  Epot=  -1175.8eV   29.6 steps/s  ETA     4s  (elapsed    2s)
+        [quench 8/15] step   100/166  T=  1066K  Epot=  -1175.8eV   28.5 steps/s  ETA     2s  (elapsed    3s)
+        [quench 8/15] step   150/166  T=  1037K  Epot=  -1177.1eV   28.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 8/15] 467K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 9/15] starting 166 steps @ 400K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/166  T=  1012K  Epot=  -1177.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 9/15] step    50/166  T=  1053K  Epot=  -1179.9eV   29.6 steps/s  ETA     4s  (elapsed    2s)
+        [quench 9/15] step   100/166  T=   939K  Epot=  -1180.1eV   29.5 steps/s  ETA     2s  (elapsed    3s)
+        [quench 9/15] step   150/166  T=   851K  Epot=  -1179.8eV   29.5 steps/s  ETA     1s  (elapsed    5s)
+      [quench 9/15] 400K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 10/15] starting 166 steps @ 333K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/166  T=   863K  Epot=  -1180.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 10/15] step    50/166  T=   787K  Epot=  -1181.1eV   29.8 steps/s  ETA     4s  (elapsed    2s)
+        [quench 10/15] step   100/166  T=   793K  Epot=  -1183.6eV   29.6 steps/s  ETA     2s  (elapsed    3s)
+        [quench 10/15] step   150/166  T=   746K  Epot=  -1183.5eV   29.5 steps/s  ETA     1s  (elapsed    5s)
+      [quench 10/15] 333K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 11/15] starting 166 steps @ 267K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/166  T=   677K  Epot=  -1182.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 11/15] step    50/166  T=   644K  Epot=  -1183.1eV   29.6 steps/s  ETA     4s  (elapsed    2s)
+        [quench 11/15] step   100/166  T=   622K  Epot=  -1184.0eV   29.7 steps/s  ETA     2s  (elapsed    3s)
+        [quench 11/15] step   150/166  T=   659K  Epot=  -1186.4eV   29.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 11/15] 267K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 12/15] starting 166 steps @ 200K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/166  T=   604K  Epot=  -1185.9eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 12/15] step    50/166  T=   598K  Epot=  -1187.3eV   29.8 steps/s  ETA     4s  (elapsed    2s)
+        [quench 12/15] step   100/166  T=   521K  Epot=  -1187.2eV   29.5 steps/s  ETA     2s  (elapsed    3s)
+        [quench 12/15] step   150/166  T=   530K  Epot=  -1188.3eV   29.4 steps/s  ETA     1s  (elapsed    5s)
+      [quench 12/15] 200K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 13/15] starting 166 steps @ 133K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/166  T=   521K  Epot=  -1188.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 13/15] step    50/166  T=   498K  Epot=  -1189.1eV   29.2 steps/s  ETA     4s  (elapsed    2s)
+        [quench 13/15] step   100/166  T=   455K  Epot=  -1189.3eV   29.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 13/15] step   150/166  T=   394K  Epot=  -1189.3eV   29.2 steps/s  ETA     1s  (elapsed    5s)
+      [quench 13/15] 133K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 14/15] starting 166 steps @ 67K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/166  T=   412K  Epot=  -1190.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 14/15] step    50/166  T=   359K  Epot=  -1190.3eV   29.3 steps/s  ETA     4s  (elapsed    2s)
+        [quench 14/15] step   100/166  T=   346K  Epot=  -1191.5eV   29.2 steps/s  ETA     2s  (elapsed    3s)
+        [quench 14/15] step   150/166  T=   320K  Epot=  -1192.1eV   29.3 steps/s  ETA     1s  (elapsed    5s)
+      [quench 14/15] 67K 0.3333333333333333ps (166 steps) done in 6s
+      [quench 15/15] starting 166 steps @ 1K (193 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/166  T=   292K  Epot=  -1191.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 15/15] step    50/166  T=   260K  Epot=  -1192.3eV   28.5 steps/s  ETA     4s  (elapsed    2s)
+        [quench 15/15] step   100/166  T=   240K  Epot=  -1192.9eV   28.0 steps/s  ETA     2s  (elapsed    4s)
+        [quench 15/15] step   150/166  T=   237K  Epot=  -1193.8eV   27.5 steps/s  ETA     1s  (elapsed    5s)
+      [quench 15/15] 1K 0.3333333333333333ps (166 steps) done in 6s
+      [anneal relax] BFGS (<= 300 steps, fmax=0.05) ...
+      Step     Time          Energy          fmax
+BFGS:    0 14:52:27    -1194.010986        2.871679
+BFGS:    1 14:52:27    -1195.438232        3.038777
+BFGS:    2 14:52:27    -1195.445801       12.115002
+BFGS:    3 14:52:27    -1196.142822        3.011077
+BFGS:    4 14:52:27    -1196.049561       12.714536
+BFGS:    5 14:52:28    -1196.490723        1.470062
+BFGS:    6 14:52:28    -1196.607178        4.324237
+BFGS:    7 14:52:28    -1196.639160        3.551241
+BFGS:    8 14:52:28    -1196.865479        1.352794
+BFGS:    9 14:52:28    -1196.967529        0.462805
+BFGS:   10 14:52:28    -1197.072510        1.196621
+BFGS:   11 14:52:28    -1197.147705        0.841346
+BFGS:   12 14:52:28    -1197.210815        0.275443
+BFGS:   13 14:52:29    -1197.257568        0.322321
+BFGS:   14 14:52:29    -1197.297119        0.502926
+BFGS:   15 14:52:29    -1197.335938        0.393532
+BFGS:   16 14:52:29    -1197.374268        0.311776
+BFGS:   17 14:52:29    -1197.409424        0.286774
+BFGS:   18 14:52:29    -1197.441162        0.311544
+BFGS:   19 14:52:29    -1197.472778        0.250597
+BFGS:   20 14:52:29    -1197.507080        0.269364
+BFGS:   21 14:52:30    -1197.542480        0.300388
+BFGS:   22 14:52:30    -1197.576660        0.282233
+BFGS:   23 14:52:30    -1197.609741        0.238853
+BFGS:   24 14:52:30    -1197.640625        0.234688
+BFGS:   25 14:52:30    -1197.668213        0.243190
+BFGS:   26 14:52:30    -1197.685059        0.287332
+BFGS:   27 14:52:30    -1197.704590        0.183930
+BFGS:   28 14:52:30    -1197.719849        0.153663
+BFGS:   29 14:52:31    -1197.744141        0.200979
+BFGS:   30 14:52:31    -1197.756836        0.236755
+BFGS:   31 14:52:31    -1197.774658        0.189681
+BFGS:   32 14:52:31    -1197.786743        0.128507
+BFGS:   33 14:52:31    -1197.798584        0.147359
+BFGS:   34 14:52:31    -1197.809204        0.208222
+BFGS:   35 14:52:31    -1197.820312        0.246091
+BFGS:   36 14:52:31    -1197.831055        0.222388
+BFGS:   37 14:52:31    -1197.841553        0.112979
+BFGS:   38 14:52:32    -1197.854248        0.154822
+BFGS:   39 14:52:32    -1197.862061        0.188538
+BFGS:   40 14:52:32    -1197.873535        0.147456
+BFGS:   41 14:52:32    -1197.882568        0.115843
+BFGS:   42 14:52:32    -1197.892822        0.139805
+BFGS:   43 14:52:32    -1197.902344        0.204016
+BFGS:   44 14:52:32    -1197.909424        0.454742
+BFGS:   45 14:52:32    -1197.920288        0.157301
+BFGS:   46 14:52:33    -1197.930786        0.129440
+BFGS:   47 14:52:33    -1197.941406        0.181256
+BFGS:   48 14:52:33    -1197.949707        0.211881
+BFGS:   49 14:52:33    -1197.959717        0.163260
+BFGS:   50 14:52:33    -1197.968262        0.194968
+BFGS:   51 14:52:33    -1197.977051        0.152842
+BFGS:   52 14:52:33    -1197.979492        0.542864
+BFGS:   53 14:52:33    -1197.991455        0.203162
+BFGS:   54 14:52:34    -1197.997803        0.130586
+BFGS:   55 14:52:34    -1198.011475        0.304304
+BFGS:   56 14:52:34    -1198.016357        0.167464
+BFGS:   57 14:52:34    -1198.024414        0.186612
+BFGS:   58 14:52:34    -1198.031860        0.117321
+BFGS:   59 14:52:34    -1198.036377        0.118510
+BFGS:   60 14:52:34    -1198.043213        0.256295
+BFGS:   61 14:52:34    -1198.048340        0.270672
+BFGS:   62 14:52:35    -1198.054443        0.125058
+BFGS:   63 14:52:35    -1198.059326        0.219909
+BFGS:   64 14:52:35    -1198.066162        0.125706
+BFGS:   65 14:52:35    -1198.070312        0.126112
+BFGS:   66 14:52:35    -1198.075195        0.091511
+BFGS:   67 14:52:35    -1198.079346        0.078926
+BFGS:   68 14:52:35    -1198.083740        0.087810
+BFGS:   69 14:52:35    -1198.087524        0.169214
+BFGS:   70 14:52:35    -1198.091309        0.114072
+BFGS:   71 14:52:36    -1198.094482        0.074203
+BFGS:   72 14:52:36    -1198.098877        0.096795
+BFGS:   73 14:52:36    -1198.101074        0.100785
+BFGS:   74 14:52:36    -1198.106445        0.087124
+BFGS:   75 14:52:36    -1198.109619        0.078671
+BFGS:   76 14:52:36    -1198.113281        0.095062
+BFGS:   77 14:52:36    -1198.117065        0.125216
+BFGS:   78 14:52:36    -1198.119873        0.119997
+BFGS:   79 14:52:37    -1198.123169        0.086550
+BFGS:   80 14:52:37    -1198.126953        0.096135
+BFGS:   81 14:52:37    -1198.131104        0.117510
+BFGS:   82 14:52:37    -1198.134033        0.119430
+BFGS:   83 14:52:37    -1198.138062        0.079637
+BFGS:   84 14:52:37    -1198.141479        0.092385
+BFGS:   85 14:52:37    -1198.145020        0.077960
+BFGS:   86 14:52:37    -1198.147461        0.080280
+BFGS:   87 14:52:38    -1198.150391        0.065375
+BFGS:   88 14:52:38    -1198.153564        0.084477
+BFGS:   89 14:52:38    -1198.155762        0.147315
+BFGS:   90 14:52:38    -1198.159302        0.088821
+BFGS:   91 14:52:38    -1198.162354        0.055664
+BFGS:   92 14:52:38    -1198.166504        0.079430
+BFGS:   93 14:52:38    -1198.168945        0.134428
+BFGS:   94 14:52:38    -1198.172852        0.109052
+BFGS:   95 14:52:38    -1198.176758        0.126798
+BFGS:   96 14:52:39    -1198.180298        0.082769
+BFGS:   97 14:52:39    -1198.183594        0.085803
+BFGS:   98 14:52:39    -1198.187134        0.080365
+BFGS:   99 14:52:39    -1198.190186        0.067670
+BFGS:  100 14:52:39    -1198.191772        0.175201
+BFGS:  101 14:52:39    -1198.193604        0.252267
+BFGS:  102 14:52:39    -1198.196777        0.069427
+BFGS:  103 14:52:39    -1198.198975        0.053630
+BFGS:  104 14:52:40    -1198.202271        0.075644
+BFGS:  105 14:52:40    -1198.204590        0.068589
+BFGS:  106 14:52:40    -1198.206665        0.089452
+BFGS:  107 14:52:40    -1198.209717        0.066017
+BFGS:  108 14:52:40    -1198.213135        0.059126
+BFGS:  109 14:52:40    -1198.215820        0.063852
+BFGS:  110 14:52:40    -1198.218994        0.080661
+BFGS:  111 14:52:40    -1198.221191        0.065468
+BFGS:  112 14:52:41    -1198.224243        0.142561
+BFGS:  113 14:52:41    -1198.226807        0.076880
+BFGS:  114 14:52:41    -1198.229248        0.103500
+BFGS:  115 14:52:41    -1198.231934        0.080364
+BFGS:  116 14:52:41    -1198.234131        0.071754
+BFGS:  117 14:52:41    -1198.237061        0.108700
+BFGS:  118 14:52:41    -1198.239380        0.097789
+BFGS:  119 14:52:41    -1198.241211        0.092819
+BFGS:  120 14:52:41    -1198.243286        0.053165
+BFGS:  121 14:52:42    -1198.244873        0.058836
+BFGS:  122 14:52:42    -1198.246704        0.057959
+BFGS:  123 14:52:42    -1198.249146        0.057637
+BFGS:  124 14:52:42    -1198.250732        0.049897
+      [anneal relax] BFGS stopped after 124 steps
+[SiNx] bulk 0 term 0: {'NH_bridge': np.float64(0.0), 'O_bridge': np.float64(0.0), 'OH': np.float64(0.0), 'NH2': np.float64(0.0)} | strained=0 R=None | REJECT (NH2 density 0.00 outside [1.75,5.25] nm^-2; NH_bridge density 0.00 outside [2.00,6.00] nm^-2)
+    [cache] loaded bulk ← bulk_cache/SiNx_bulk_1824b765beaaeec1.xyz (104 atoms)
+    anneal + relax (170 atoms)...
+      [anneal] starting 2500 steps @ 1000K (170 atoms; first force eval may take a few s to warm up)...
+        [anneal] step     0/2500  T=   653K  Epot=   -956.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [anneal] step    50/2500  T=  3309K  Epot=  -1004.1eV   29.2 steps/s  ETA    84s  (elapsed    2s)
+        [anneal] step   100/2500  T=  3358K  Epot=  -1009.8eV   30.1 steps/s  ETA    80s  (elapsed    3s)
+        [anneal] step   150/2500  T=  3426K  Epot=  -1018.4eV   30.7 steps/s  ETA    76s  (elapsed    5s)
+        [anneal] step   200/2500  T=  3316K  Epot=  -1025.7eV   31.5 steps/s  ETA    73s  (elapsed    7s)
+        [anneal] step   250/2500  T=  2938K  Epot=  -1026.5eV   30.8 steps/s  ETA    73s  (elapsed    8s)
+        [anneal] step   300/2500  T=  3053K  Epot=  -1033.8eV   31.2 steps/s  ETA    70s  (elapsed   10s)
+        [anneal] step   350/2500  T=  2698K  Epot=  -1032.3eV   32.1 steps/s  ETA    67s  (elapsed   11s)
+        [anneal] step   400/2500  T=  2457K  Epot=  -1033.4eV   31.3 steps/s  ETA    67s  (elapsed   13s)
+        [anneal] step   450/2500  T=  2492K  Epot=  -1039.1eV   30.9 steps/s  ETA    66s  (elapsed   15s)
+        [anneal] step   500/2500  T=  2551K  Epot=  -1044.3eV   32.0 steps/s  ETA    62s  (elapsed   16s)
+        [anneal] step   550/2500  T=  2358K  Epot=  -1043.0eV   32.3 steps/s  ETA    60s  (elapsed   18s)
+        [anneal] step   600/2500  T=  2199K  Epot=  -1045.3eV   32.1 steps/s  ETA    59s  (elapsed   19s)
+        [anneal] step   650/2500  T=  2027K  Epot=  -1046.1eV   32.3 steps/s  ETA    57s  (elapsed   21s)
+        [anneal] step   700/2500  T=  2347K  Epot=  -1054.3eV   32.0 steps/s  ETA    56s  (elapsed   22s)
+        [anneal] step   750/2500  T=  1854K  Epot=  -1051.4eV   32.1 steps/s  ETA    54s  (elapsed   24s)
+        [anneal] step   800/2500  T=  1710K  Epot=  -1053.0eV   32.0 steps/s  ETA    53s  (elapsed   26s)
+        [anneal] step   850/2500  T=  1827K  Epot=  -1055.6eV   32.0 steps/s  ETA    52s  (elapsed   27s)
+        [anneal] step   900/2500  T=  1766K  Epot=  -1056.8eV   32.1 steps/s  ETA    50s  (elapsed   29s)
+        [anneal] step   950/2500  T=  1716K  Epot=  -1057.6eV   31.8 steps/s  ETA    49s  (elapsed   30s)
+        [anneal] step  1000/2500  T=  1651K  Epot=  -1057.6eV   31.8 steps/s  ETA    47s  (elapsed   32s)
+        [anneal] step  1050/2500  T=  1702K  Epot=  -1059.7eV   31.2 steps/s  ETA    47s  (elapsed   33s)
+        [anneal] step  1100/2500  T=  1562K  Epot=  -1059.4eV   31.8 steps/s  ETA    44s  (elapsed   35s)
+        [anneal] step  1150/2500  T=  1503K  Epot=  -1061.4eV   31.8 steps/s  ETA    42s  (elapsed   37s)
+        [anneal] step  1200/2500  T=  1423K  Epot=  -1062.9eV   31.9 steps/s  ETA    41s  (elapsed   38s)
+        [anneal] step  1250/2500  T=  1473K  Epot=  -1064.0eV   31.9 steps/s  ETA    39s  (elapsed   40s)
+        [anneal] step  1300/2500  T=  1290K  Epot=  -1061.8eV   31.9 steps/s  ETA    38s  (elapsed   41s)
+        [anneal] step  1350/2500  T=  1413K  Epot=  -1066.0eV   31.5 steps/s  ETA    36s  (elapsed   43s)
+        [anneal] step  1400/2500  T=  1312K  Epot=  -1066.6eV   31.8 steps/s  ETA    35s  (elapsed   44s)
+        [anneal] step  1450/2500  T=  1327K  Epot=  -1067.5eV   31.8 steps/s  ETA    33s  (elapsed   46s)
+        [anneal] step  1500/2500  T=  1253K  Epot=  -1067.6eV   31.3 steps/s  ETA    32s  (elapsed   48s)
+        [anneal] step  1550/2500  T=  1151K  Epot=  -1066.4eV   31.8 steps/s  ETA    30s  (elapsed   49s)
+        [anneal] step  1600/2500  T=  1129K  Epot=  -1066.7eV   31.8 steps/s  ETA    28s  (elapsed   51s)
+        [anneal] step  1650/2500  T=  1195K  Epot=  -1068.9eV   31.7 steps/s  ETA    27s  (elapsed   52s)
+        [anneal] step  1700/2500  T=  1250K  Epot=  -1070.0eV   31.5 steps/s  ETA    25s  (elapsed   54s)
+        [anneal] step  1750/2500  T=  1119K  Epot=  -1067.4eV   31.5 steps/s  ETA    24s  (elapsed   55s)
+        [anneal] step  1800/2500  T=  1108K  Epot=  -1066.9eV   31.0 steps/s  ETA    23s  (elapsed   57s)
+        [anneal] step  1850/2500  T=  1089K  Epot=  -1066.6eV   31.1 steps/s  ETA    21s  (elapsed   59s)
+        [anneal] step  1900/2500  T=  1123K  Epot=  -1066.8eV   31.2 steps/s  ETA    19s  (elapsed   60s)
+        [anneal] step  1950/2500  T=  1235K  Epot=  -1069.1eV   31.3 steps/s  ETA    18s  (elapsed   62s)
+        [anneal] step  2000/2500  T=  1211K  Epot=  -1069.2eV   31.3 steps/s  ETA    16s  (elapsed   63s)
+        [anneal] step  2050/2500  T=  1090K  Epot=  -1068.1eV   31.6 steps/s  ETA    14s  (elapsed   65s)
+        [anneal] step  2100/2500  T=  1098K  Epot=  -1069.3eV   31.6 steps/s  ETA    13s  (elapsed   67s)
+        [anneal] step  2150/2500  T=  1092K  Epot=  -1069.6eV   31.6 steps/s  ETA    11s  (elapsed   68s)
+        [anneal] step  2200/2500  T=  1096K  Epot=  -1070.9eV   31.7 steps/s  ETA     9s  (elapsed   70s)
+        [anneal] step  2250/2500  T=  1110K  Epot=  -1070.8eV   31.5 steps/s  ETA     8s  (elapsed   71s)
+        [anneal] step  2300/2500  T=  1030K  Epot=  -1069.1eV   31.2 steps/s  ETA     6s  (elapsed   73s)
+        [anneal] step  2350/2500  T=  1064K  Epot=  -1069.5eV   31.9 steps/s  ETA     5s  (elapsed   75s)
+        [anneal] step  2400/2500  T=  1045K  Epot=  -1069.6eV   31.9 steps/s  ETA     3s  (elapsed   76s)
+        [anneal] step  2450/2500  T=  1103K  Epot=  -1070.8eV   32.0 steps/s  ETA     2s  (elapsed   78s)
+        [anneal] step  2500/2500  T=  1096K  Epot=  -1069.4eV   32.2 steps/s  ETA     0s  (elapsed   79s)
+      [anneal] 1000K 5ps (2500 steps) done in 79s
+      [quench] 1000K -> 0K over 15 stages (5ps total)
+      [quench 1/15] starting 166 steps @ 933K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 1/15] step     0/166  T=  1096K  Epot=  -1069.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 1/15] step    50/166  T=  1071K  Epot=  -1069.8eV   32.4 steps/s  ETA     4s  (elapsed    2s)
+        [quench 1/15] step   100/166  T=   935K  Epot=  -1069.7eV   32.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 1/15] step   150/166  T=   943K  Epot=  -1068.8eV   32.3 steps/s  ETA     0s  (elapsed    5s)
+      [quench 1/15] 933K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 2/15] starting 166 steps @ 867K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 2/15] step     0/166  T=  1126K  Epot=  -1071.6eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 2/15] step    50/166  T=  1050K  Epot=  -1070.3eV   32.4 steps/s  ETA     4s  (elapsed    2s)
+        [quench 2/15] step   100/166  T=   969K  Epot=  -1069.6eV   32.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 2/15] step   150/166  T=   932K  Epot=  -1069.3eV   32.4 steps/s  ETA     0s  (elapsed    5s)
+      [quench 2/15] 867K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 3/15] starting 166 steps @ 800K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 3/15] step     0/166  T=   996K  Epot=  -1070.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 3/15] step    50/166  T=  1000K  Epot=  -1071.9eV   32.3 steps/s  ETA     4s  (elapsed    2s)
+        [quench 3/15] step   100/166  T=   913K  Epot=  -1072.2eV   32.8 steps/s  ETA     2s  (elapsed    3s)
+        [quench 3/15] step   150/166  T=   957K  Epot=  -1072.1eV   32.1 steps/s  ETA     0s  (elapsed    5s)
+      [quench 3/15] 800K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 4/15] starting 166 steps @ 733K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 4/15] step     0/166  T=   891K  Epot=  -1070.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 4/15] step    50/166  T=   899K  Epot=  -1071.6eV   32.0 steps/s  ETA     4s  (elapsed    2s)
+        [quench 4/15] step   100/166  T=   924K  Epot=  -1072.5eV   31.7 steps/s  ETA     2s  (elapsed    3s)
+        [quench 4/15] step   150/166  T=   943K  Epot=  -1073.2eV   31.6 steps/s  ETA     1s  (elapsed    5s)
+      [quench 4/15] 733K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 5/15] starting 166 steps @ 667K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 5/15] step     0/166  T=   913K  Epot=  -1072.7eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 5/15] step    50/166  T=   974K  Epot=  -1075.3eV   30.9 steps/s  ETA     4s  (elapsed    2s)
+        [quench 5/15] step   100/166  T=   897K  Epot=  -1075.4eV   31.9 steps/s  ETA     2s  (elapsed    3s)
+        [quench 5/15] step   150/166  T=   938K  Epot=  -1075.9eV   32.3 steps/s  ETA     0s  (elapsed    5s)
+      [quench 5/15] 667K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 6/15] starting 166 steps @ 600K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 6/15] step     0/166  T=   912K  Epot=  -1075.5eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 6/15] step    50/166  T=   885K  Epot=  -1076.1eV   32.3 steps/s  ETA     4s  (elapsed    2s)
+        [quench 6/15] step   100/166  T=   742K  Epot=  -1075.5eV   32.3 steps/s  ETA     2s  (elapsed    3s)
+        [quench 6/15] step   150/166  T=   778K  Epot=  -1077.1eV   32.3 steps/s  ETA     0s  (elapsed    5s)
+      [quench 6/15] 600K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 7/15] starting 166 steps @ 533K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 7/15] step     0/166  T=   776K  Epot=  -1077.0eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 7/15] step    50/166  T=   742K  Epot=  -1077.3eV   32.2 steps/s  ETA     4s  (elapsed    2s)
+        [quench 7/15] step   100/166  T=   775K  Epot=  -1078.6eV   32.0 steps/s  ETA     2s  (elapsed    3s)
+        [quench 7/15] step   150/166  T=   753K  Epot=  -1078.8eV   31.9 steps/s  ETA     1s  (elapsed    5s)
+      [quench 7/15] 533K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 8/15] starting 166 steps @ 467K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 8/15] step     0/166  T=  1555K  Epot=  -1077.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 8/15] step    50/166  T=  1203K  Epot=  -1074.0eV   30.5 steps/s  ETA     4s  (elapsed    2s)
+        [quench 8/15] step   100/166  T=  1160K  Epot=  -1075.1eV   31.7 steps/s  ETA     2s  (elapsed    3s)
+        [quench 8/15] step   150/166  T=  1041K  Epot=  -1075.2eV   32.3 steps/s  ETA     0s  (elapsed    5s)
+      [quench 8/15] 467K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 9/15] starting 166 steps @ 400K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 9/15] step     0/166  T=   927K  Epot=  -1074.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 9/15] step    50/166  T=   973K  Epot=  -1076.0eV   32.2 steps/s  ETA     4s  (elapsed    2s)
+        [quench 9/15] step   100/166  T=   893K  Epot=  -1076.5eV   32.0 steps/s  ETA     2s  (elapsed    3s)
+        [quench 9/15] step   150/166  T=   864K  Epot=  -1077.1eV   30.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 9/15] 400K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 10/15] starting 166 steps @ 333K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 10/15] step     0/166  T=   794K  Epot=  -1076.4eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 10/15] step    50/166  T=   789K  Epot=  -1078.2eV   31.8 steps/s  ETA     4s  (elapsed    2s)
+        [quench 10/15] step   100/166  T=   734K  Epot=  -1078.0eV   32.4 steps/s  ETA     2s  (elapsed    3s)
+        [quench 10/15] step   150/166  T=   735K  Epot=  -1079.2eV   32.3 steps/s  ETA     0s  (elapsed    5s)
+      [quench 10/15] 333K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 11/15] starting 166 steps @ 267K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 11/15] step     0/166  T=   699K  Epot=  -1079.1eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 11/15] step    50/166  T=   576K  Epot=  -1078.4eV   32.3 steps/s  ETA     4s  (elapsed    2s)
+        [quench 11/15] step   100/166  T=   627K  Epot=  -1080.4eV   32.0 steps/s  ETA     2s  (elapsed    3s)
+        [quench 11/15] step   150/166  T=   570K  Epot=  -1080.5eV   31.9 steps/s  ETA     1s  (elapsed    5s)
+      [quench 11/15] 267K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 12/15] starting 166 steps @ 200K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 12/15] step     0/166  T=   543K  Epot=  -1080.3eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 12/15] step    50/166  T=   473K  Epot=  -1080.6eV   31.9 steps/s  ETA     4s  (elapsed    2s)
+        [quench 12/15] step   100/166  T=   522K  Epot=  -1082.3eV   32.0 steps/s  ETA     2s  (elapsed    3s)
+        [quench 12/15] step   150/166  T=   513K  Epot=  -1082.8eV   31.8 steps/s  ETA     1s  (elapsed    5s)
+      [quench 12/15] 200K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 13/15] starting 166 steps @ 133K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 13/15] step     0/166  T=   455K  Epot=  -1082.2eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 13/15] step    50/166  T=   411K  Epot=  -1082.6eV   31.9 steps/s  ETA     4s  (elapsed    2s)
+        [quench 13/15] step   100/166  T=   370K  Epot=  -1082.7eV   32.0 steps/s  ETA     2s  (elapsed    3s)
+        [quench 13/15] step   150/166  T=   376K  Epot=  -1083.2eV   32.0 steps/s  ETA     0s  (elapsed    5s)
+      [quench 13/15] 133K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 14/15] starting 166 steps @ 67K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 14/15] step     0/166  T=   390K  Epot=  -1083.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 14/15] step    50/166  T=   341K  Epot=  -1083.9eV   32.2 steps/s  ETA     4s  (elapsed    2s)
+        [quench 14/15] step   100/166  T=   313K  Epot=  -1084.5eV   31.7 steps/s  ETA     2s  (elapsed    3s)
+        [quench 14/15] step   150/166  T=   315K  Epot=  -1085.4eV   31.6 steps/s  ETA     1s  (elapsed    5s)
+      [quench 14/15] 67K 0.3333333333333333ps (166 steps) done in 5s
+      [quench 15/15] starting 166 steps @ 1K (170 atoms; first force eval may take a few s to warm up)...
+        [quench 15/15] step     0/166  T=   265K  Epot=  -1084.8eV    0.0 steps/s  ETA   infs  (elapsed    0s)
+        [quench 15/15] step    50/166  T=   252K  Epot=  -1085.5eV   30.9 steps/s  ETA     4s  (elapsed    2s)
+        [quench 15/15] step   100/166  T=   222K  Epot=  -1085.8eV   31.8 steps/s  ETA     2s  (elapsed    3s)
+        [quench 15/15] step   150/166  T=   238K  Epot=  -1086.7eV   30.3 steps/s  ETA     1s  (elapsed    5s)
+      [quench 15/15] 1K 0.3333333333333333ps (166 steps) done in 5s
+      [anneal relax] BFGS (<= 300 steps, fmax=0.05) ...
+      Step     Time          Energy          fmax
+BFGS:    0 14:55:19    -1086.554199        4.251569
+BFGS:    1 14:55:19    -1087.818604        3.650194
+BFGS:    2 14:55:19    -1087.832520        8.454941
+BFGS:    3 14:55:19    -1088.411499        1.352820
+BFGS:    4 14:55:19    -1088.586914        1.823919
+BFGS:    5 14:55:20    -1088.777588        1.858995
+BFGS:    6 14:55:20    -1088.938354        0.636227
+BFGS:    7 14:55:20    -1089.019897        0.559329
+BFGS:    8 14:55:20    -1089.112915        0.714640
+BFGS:    9 14:55:20    -1089.169434        0.599641
+BFGS:   10 14:55:20    -1089.217896        0.304672
+BFGS:   11 14:55:20    -1089.253296        0.286291
+BFGS:   12 14:55:20    -1089.286499        0.382215
+BFGS:   13 14:55:20    -1089.315186        0.331339
+BFGS:   14 14:55:20    -1089.340332        0.219032
+BFGS:   15 14:55:20    -1089.363647        0.197643
+BFGS:   16 14:55:20    -1089.386108        0.317609
+BFGS:   17 14:55:20    -1089.407104        0.265174
+BFGS:   18 14:55:20    -1089.427979        0.227454
+BFGS:   19 14:55:20    -1089.448242        0.213465
+BFGS:   20 14:55:20    -1089.468506        0.203338
+BFGS:   21 14:55:20    -1089.487793        0.182174
+BFGS:   22 14:55:20    -1089.506836        0.241200
+BFGS:   23 14:55:20    -1089.524414        0.226814
+BFGS:   24 14:55:20    -1089.541016        0.219783
+BFGS:   25 14:55:20    -1089.554688        0.156746
+BFGS:   26 14:55:21    -1089.565186        0.273683
+BFGS:   27 14:55:21    -1089.574097        0.187650
+BFGS:   28 14:55:21    -1089.583252        0.141243
+BFGS:   29 14:55:21    -1089.596680        0.158633
+BFGS:   30 14:55:21    -1089.603027        0.154561
+BFGS:   31 14:55:21    -1089.613037        0.128486
+BFGS:   32 14:55:21    -1089.619507        0.110939
+BFGS:   33 14:55:21    -1089.626221        0.128852
+BFGS:   34 14:55:21    -1089.632568        0.171753
+BFGS:   35 14:55:21    -1089.639160        0.129713
+BFGS:   36 14:55:21    -1089.646240        0.103304
+BFGS:   37 14:55:21    -1089.650269        0.102392
+BFGS:   38 14:55:21    -1089.655762        0.145503
+BFGS:   39 14:55:21    -1089.660278        0.123436
+BFGS:   40 14:55:21    -1089.664795        0.092305
+BFGS:   41 14:55:21    -1089.668945        0.095593
+BFGS:   42 14:55:21    -1089.673218        0.109018
+BFGS:   43 14:55:21    -1089.677124        0.137400
+BFGS:   44 14:55:21    -1089.680908        0.143723
+BFGS:   45 14:55:21    -1089.684570        0.112687
+BFGS:   46 14:55:21    -1089.689209        0.184275
+BFGS:   47 14:55:21    -1089.692993        0.144530
+BFGS:   48 14:55:22    -1089.697754        0.160725
+BFGS:   49 14:55:22    -1089.702271        0.126865
+BFGS:   50 14:55:22    -1089.706787        0.118511
+BFGS:   51 14:55:22    -1089.710938        0.280321
+BFGS:   52 14:55:22    -1089.713989        0.169008
+BFGS:   53 14:55:22    -1089.718384        0.115372
+BFGS:   54 14:55:22    -1089.723145        0.108806
+BFGS:   55 14:55:22    -1089.726318        0.118937
+BFGS:   56 14:55:22    -1089.730225        0.092929
+BFGS:   57 14:55:22    -1089.732788        0.117727
+BFGS:   58 14:55:22    -1089.736328        0.082666
+BFGS:   59 14:55:22    -1089.738770        0.117416
+BFGS:   60 14:55:22    -1089.741211        0.098478
+BFGS:   61 14:55:22    -1089.743408        0.249531
+BFGS:   62 14:55:22    -1089.746094        0.078808
+BFGS:   63 14:55:22    -1089.748535        0.073435
+BFGS:   64 14:55:22    -1089.752808        0.089211
+BFGS:   65 14:55:22    -1089.755737        0.088834
+BFGS:   66 14:55:22    -1089.760010        0.091071
+BFGS:   67 14:55:22    -1089.763428        0.071093
+BFGS:   68 14:55:22    -1089.766602        0.099934
+BFGS:   69 14:55:23    -1089.769409        0.098601
+BFGS:   70 14:55:23    -1089.771240        0.222830
+BFGS:   71 14:55:23    -1089.774414        0.063151
+BFGS:   72 14:55:23    -1089.776855        0.066258
+BFGS:   73 14:55:23    -1089.779053        0.071287
+BFGS:   74 14:55:23    -1089.781738        0.081831
+BFGS:   75 14:55:23    -1089.784546        0.088098
+BFGS:   76 14:55:23    -1089.787476        0.061403
+BFGS:   77 14:55:23    -1089.789795        0.077773
+BFGS:   78 14:55:23    -1089.791504        0.069394
+BFGS:   79 14:55:23    -1089.794434        0.088217
+BFGS:   80 14:55:23    -1089.797241        0.096677
+BFGS:   81 14:55:23    -1089.800293        0.075271
+BFGS:   82 14:55:23    -1089.802490        0.080597
+BFGS:   83 14:55:23    -1089.804565        0.102142
+BFGS:   84 14:55:23    -1089.806641        0.077989
+BFGS:   85 14:55:23    -1089.808716        0.060717
+BFGS:   86 14:55:23    -1089.811157        0.061207
+BFGS:   87 14:55:23    -1089.812988        0.073698
+BFGS:   88 14:55:23    -1089.815063        0.077785
+BFGS:   89 14:55:23    -1089.817749        0.072293
+BFGS:   90 14:55:23    -1089.820068        0.059101
+BFGS:   91 14:55:24    -1089.821411        0.057807
+BFGS:   92 14:55:24    -1089.823242        0.072176
+BFGS:   93 14:55:24    -1089.824463        0.058790
+BFGS:   94 14:55:24    -1089.825562        0.065573
+BFGS:   95 14:55:24    -1089.827515        0.060737
+BFGS:   96 14:55:24    -1089.829102        0.055834
+BFGS:   97 14:55:24    -1089.830078        0.048810
+      [anneal relax] BFGS stopped after 97 steps
+[SiNx] bulk 0 term 1: {'NH2': np.float64(0.0), 'NH_bridge': np.float64(0.0), 'O_bridge': np.float64(0.0), 'OH': np.float64(0.0)} | strained=0 R=None | REJECT (NH2 density 0.00 outside [1.75,5.25] nm^-2; NH_bridge density 0.00 outside [2.00,6.00] nm^-2)
+  saved 0 SiNx surface(s)
+No surfaces available; aborting.
+=== Pipeline completed successfully ===
