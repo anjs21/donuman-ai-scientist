@@ -1,0 +1,14 @@
+# AS-ALD in-silico co-scientist (Challenge 4) — dependencies
+#
+# Core (surface geometry, validation, selection logic, selectivity model):
+numpy>=1.24
+ase>=3.22
+scipy>=1.10
+
+# MLIP calculator for melt-quench MD and reaction energetics.
+# Requires a CUDA-capable GPU for practical run times; CPU works for TEST mode.
+mace-torch>=0.3.6
+
+# torch is pulled in by mace-torch; pin a CUDA build matching your driver, e.g.
+# pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1
