@@ -27,8 +27,8 @@ import time
 
 import streamlit as st
 
-from agent import agent_loop
 from agent import llm
+from agent import orchestrator
 from agent import report_tools as rt
 
 st.set_page_config(page_title="AS-ALD Co-Scientist", page_icon="🧪",
@@ -541,27 +541,33 @@ with tab_explain:
 
 
 # --------------------------------------------------------------------------
-# Job 4 — Autonomous Phase 2 screening agent (finds the best inhibitor)
+# Job 4 — Autonomous pipeline orchestrator agent (finds the best inhibitor)
 # --------------------------------------------------------------------------
 
-def _render_screen_table(screened: dict) -> None:
+def _render_report_table(inhibitors: list, selectivity: dict) -> None:
     st.dataframe(
         [{"reagent": c.get("name"), "dE_GS": c.get("dE_GS"),
           "dE_NGS": c.get("dE_NGS"), "contrast": c.get("contrast"),
-          "binds_NGS": c.get("binds_NGS"), "selective": c.get("selective"),
-          **({"error": c["error"]} if "error" in c else {})}
-         for c in screened.values()],
+          "status": "accept" if c.get("accepted")
+          else "reject: " + "; ".join(c.get("reasons", []))}
+         for c in inhibitors],
         width="stretch", hide_index=True)
+    if selectivity:
+        st.caption("Selectivity vs 90% @ 10 nm target")
+        st.dataframe(
+            [{"inhibitor": n, "S@target": s.get("S_at_target"),
+              "meets_target": bool(s.get("meets_target"))}
+             for n, s in selectivity.items()],
+            width="stretch", hide_index=True)
 
 
-def _render_agent_event(ev: dict) -> None:
-    """Render one trace event from agent_loop.run_agent into the page."""
+def _render_agent_event(ev: dict, approvals: list) -> None:
+    """Render one orchestrator trace event; collect any build approvals."""
     step, kind = ev.get("step"), ev["type"]
     if kind == "setup":
-        st.caption(f"Surfaces {ev['surfaces']} loaded from "
-                   f"`{os.path.relpath(ev['dir'], REPO)}`. "
-                   + ("⚠️ Lennard-Jones placeholder — energies not physical."
-                      if ev["placeholder"] else "MLIP calculator ready."))
+        st.caption(f"Orchestrating over surfaces {ev['surfaces']} from "
+                   f"`{os.path.relpath(ev['dir'], REPO)}` · "
+                   f"run budget {ev['runs_budget']}.")
     elif kind == "assistant":
         st.markdown(f"**Step {step} · reasoning**")
         st.markdown(f"> {ev['text']}")
@@ -569,16 +575,26 @@ def _render_agent_event(ev: dict) -> None:
         st.markdown(f"**Step {step} · action** — calling `{ev['name']}`")
         if ev["args"]:
             st.code(json.dumps(ev["args"], indent=2), language="json")
+    elif kind == "run_start":
+        st.info(f"⏳ Step {step}: running the pipeline on "
+                f"{ev['reagents']} (max_sites={ev['max_sites']})… this holds the "
+                "GPU until it finishes.")
+    elif kind == "approval_request":
+        approvals.append(ev)
+        st.warning(f"🚧 Step {step}: the agent requests a **fresh surface build** — "
+                   f"{ev['materials']} in `{ev['mode']}` mode. Reason: {ev['reason']}")
     elif kind == "tool_result":
         res, name = ev["result"], ev["name"]
         with st.expander(f"Step {step} · result of `{name}`", expanded=True):
-            if name == "screen" and isinstance(res.get("screened"), dict):
-                _render_screen_table(res["screened"])
-            elif name == "rank_screened" and isinstance(res.get("ranking"), list):
-                best = res.get("best_selective")
-                st.caption(f"best selective so far: "
-                           f"{best['name'] if best else '— none yet'}")
-                _render_screen_table({r["name"]: r for r in res["ranking"]})
+            if name == "run_screen" and isinstance(res.get("inhibitors"), list):
+                if res.get("placeholder_calc"):
+                    st.warning("Run used the Lennard-Jones placeholder — "
+                               "energies not physical.")
+                st.caption(f"recommended inhibitor: "
+                           f"{res.get('recommended_inhibitor') or '—'} · "
+                           f"precursor: {res.get('recommended_precursor') or '—'} · "
+                           f"runs left: {res.get('runs_left')}")
+                _render_report_table(res["inhibitors"], res.get("selectivity", {}))
             else:
                 st.code(json.dumps(res, indent=2, default=str), language="json")
     elif kind == "final":
@@ -589,25 +605,27 @@ def _render_agent_event(ev: dict) -> None:
 
 
 with tab_agent:
-    st.subheader("Autonomous screening agent — find the best inhibitor")
-    st.caption("The on-device model drives the **Phase 2 energetics screen**: it "
-               "calls `screen(...)` on batches of inhibitors, reads the "
-               "dE_GS / dE_NGS / contrast that come back, and iterates toward the "
-               "most selective candidate — screening incrementally instead of "
-               "brute-forcing the whole library. Each screen runs the MLIP, so "
-               "this uses the GPU; don't run a pipeline job at the same time.")
+    st.subheader("Autonomous pipeline agent — find the best inhibitor")
+    st.caption("The on-device model orchestrates the **whole pipeline**: it "
+               "inspects what's available, runs the screen (`run_screen`) on "
+               "reagent batches over existing surfaces, reads the ranked report, "
+               "and iterates toward the best selective inhibitor + precursor. "
+               "Fresh surface builds (Phase 1) are **gated** — the agent can only "
+               "*request* one; you approve it below. Runs are serialized so the "
+               "model and MACE never contend for the GPU.")
 
     surf_sets_a = rt.find_surface_sets()
     if not surf_sets_a:
         st.warning("No reusable surface slabs on disk. Build surfaces first "
-                   "(Submit job tab, or run_surface_builder.py) before screening.")
+                   "(Submit job tab) before the agent can screen.")
     rel_dirs_a = {os.path.relpath(d, REPO): d for d in surf_sets_a}
 
     default_goal = (
-        "Screen the inhibitor library and identify the single best selective "
-        "inhibitor for passivating SiNx (NGS) while sparing SiO2 (GS): the "
-        "largest positive contrast (dE_GS - dE_NGS) with favourable NGS binding. "
-        "Screen strategically and report the winner with its numbers.")
+        "Find the best selective inhibitor for passivating SiNx (NGS) while "
+        "sparing SiO2 (GS) — largest positive contrast (dE_GS - dE_NGS) with "
+        "favourable NGS binding — plus a precursor, and state whether the "
+        "90% @ 10 nm selectivity target is met. Screen strategically within the "
+        "run budget and report the winners with their numbers.")
     a_goal = st.text_area("Goal", value=default_goal, height=110, key="agent_goal")
 
     c1a, c2a, c3a = st.columns(3)
@@ -618,27 +636,44 @@ with tab_agent:
             format_func=lambda r: f"{r}/ "
             f"({', '.join(rt.set_materials(surf_sets_a[rel_dirs_a[r]])) or '—'})",
             key="agent_surf")]
-    a_steps = c2a.slider("Max steps", 3, 20, agent_loop.MAX_STEPS_DEFAULT,
+    a_steps = c2a.slider("Max steps", 3, 20, orchestrator.MAX_STEPS_DEFAULT,
                          key="agent_steps")
-    a_sites = c3a.slider("Sites per screen", 1, 4, 2, key="agent_sites",
-                         help="Representative sites per site-type per surface. "
-                         "Fewer = faster but noisier energies.")
+    a_runs = c3a.slider("Run budget (pipeline launches)", 1, 6,
+                        orchestrator.MAX_RUNS_DEFAULT, key="agent_runs",
+                        help="How many times the agent may run the GPU pipeline. "
+                        "Each run is minutes; this caps the total GPU spend.")
 
     disabled_a = (not up) or (not surf_sets_a)
     if not up:
         st.info("Model offline — start Ollama (`ollama serve`) to run the agent.")
-    if st.button("Run screening agent", type="primary", disabled=disabled_a,
+    if st.button("Run pipeline agent", type="primary", disabled=disabled_a,
                  key="run_agent"):
-        with st.spinner("Agent screening… each screen runs the MLIP, so this "
-                        "can take a while; the trace fills in as it goes."):
+        approvals: list = []
+        with st.spinner("Agent working… pipeline runs hold the GPU for minutes "
+                        "each; the trace fills in as it goes."):
             try:
-                for ev in agent_loop.run_agent(model, a_goal,
-                                               surface_dir=chosen_dir,
-                                               max_steps=a_steps,
-                                               max_sites=a_sites):
-                    _render_agent_event(ev)
+                for ev in orchestrator.run_agent(model, a_goal,
+                                                 surface_dir=chosen_dir,
+                                                 max_steps=a_steps,
+                                                 max_runs=a_runs):
+                    _render_agent_event(ev, approvals)
             except llm.OllamaError as e:
                 st.error(str(e))
+        st.session_state["agent_build_requests"] = approvals
+
+    # -- Human gate: approve any surface builds the agent asked for --
+    reqs = st.session_state.get("agent_build_requests") or []
+    if reqs:
+        st.markdown("---")
+        st.markdown("**Surface builds the agent requested** (Phase 1 — approve to run)")
+        for i, req in enumerate(reqs):
+            st.write(f"- {req['materials']} in `{req['mode']}` mode — {req['reason']}")
+            if st.button(f"Approve & launch build #{i+1}", key=f"approve_build_{i}"):
+                _launch_pipeline(req["mode"], materials=req["materials"] or None,
+                                 auto=False, model=model)
+                st.session_state["agent_build_requests"] = [
+                    r for j, r in enumerate(reqs) if j != i]
+                st.rerun()
 
 
 # --------------------------------------------------------------------------
