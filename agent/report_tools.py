@@ -43,7 +43,7 @@ def find_reports(root: str = REPO_ROOT) -> List[str]:
 
 
 def load_report(path: str) -> Dict[str, Any]:
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -278,7 +278,7 @@ def apply_config_to_md(overrides: Dict[str, float],
     overrides = clamp_config(overrides)
     if not overrides:
         return []
-    with open(md_path) as fh:
+    with open(md_path, encoding="utf-8") as fh:
         text = fh.read()
 
     m = re.search(r"(```selection-config\n)(.*?)(```)", text, re.S)
@@ -303,7 +303,7 @@ def apply_config_to_md(overrides: Dict[str, float],
             out_lines.append(line)
 
     new_text = text[:m.start(2)] + "".join(out_lines) + text[m.end(2):]
-    with open(md_path, "w") as fh:
+    with open(md_path, "w", encoding="utf-8") as fh:
         fh.write(new_text)
     return changed
 

@@ -64,7 +64,7 @@ def load_config(md_path="selection_criteria.md"):
     """Parse the ```selection-config block from the criteria markdown."""
     cfg = dict(DEFAULT_CONFIG)
     try:
-        with open(md_path) as fh:
+        with open(md_path, encoding="utf-8") as fh:
             text = fh.read()
     except FileNotFoundError:
         print(f"  [agent] {md_path} not found; using built-in defaults.")

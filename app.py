@@ -90,12 +90,14 @@ def _launch_pipeline(mode: str, surface_glob: str | None = None,
     logpath = os.path.join(logdir, f"pipeline_{mode}_{stamp}.log")
     outdir = os.path.join(logdir, f"run_{mode}_{stamp}")
     os.makedirs(outdir, exist_ok=True)
-    cmd = [sys.executable, "run_pipeline.py", "--mode", mode,
+    cmd = [sys.executable, "run_pipeline.py",
            "--output-dir", outdir, "--report", os.path.join(outdir, "report")]
     if materials:
         cmd += ["--materials", *materials]
     if surface_glob:
         cmd += ["--use-existing", surface_glob]
+    else:
+        cmd += ["--mode", mode]
     if reagents:
         cmd += ["--reagents", *reagents]
     if n_workers > 1:
@@ -364,9 +366,11 @@ with tab_submit:
                 problems.append("chosen structure set has no slab for "
                                 + ", ".join(missing))
 
-    preview = ["run_pipeline.py", "--mode", mode, "--materials", *j_materials]
+    preview = ["run_pipeline.py", "--materials", *j_materials]
     if surface_glob:
         preview += ["--use-existing", os.path.relpath(surface_glob, REPO)]
+    else:
+        preview += ["--mode", mode]
     if j_reagents:
         preview += ["--reagents", *j_reagents]
     st.caption("Command that will run:")
