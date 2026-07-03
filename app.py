@@ -27,6 +27,7 @@ import time
 
 import streamlit as st
 
+from agent import agent_loop
 from agent import llm
 from agent import report_tools as rt
 
@@ -272,8 +273,8 @@ n_meets = sum(1 for s in report.get("selectivity", {}).values()
               if s.get("meets_target"))
 c3.metric("Candidates meeting target", n_meets)
 
-tab_submit, tab_explain, tab_tune = st.tabs(
-    ["🚀 Submit job", "📖 Explain", "🎛️ Tune & re-run"])
+tab_submit, tab_explain, tab_agent = st.tabs(
+    ["🚀 Submit job", "📖 Explain", "🤖 Agent"])
 
 
 # --------------------------------------------------------------------------
@@ -409,134 +410,235 @@ with tab_explain:
 # Job 3 — Tune & re-run
 # --------------------------------------------------------------------------
 
-with tab_tune:
-    st.subheader("Diagnose, tune thresholds, re-run selection")
-    st.caption("Threshold changes only touch the selection + selectivity "
-               "phases, so re-running is instant — the MD/MLIP energetics are "
-               "reused from this report.")
+# with tab_tune:
+#     st.subheader("Diagnose, tune thresholds, re-run selection")
+#     st.caption("Threshold changes only touch the selection + selectivity "
+#                "phases, so re-running is instant — the MD/MLIP energetics are "
+#                "reused from this report.")
 
-    cfg = rt.current_config()
+#     cfg = rt.current_config()
 
-    # -- 1. Ask the model for a structured suggestion --
-    st.markdown("**1 · Ask the model to diagnose this run**")
-    if st.button("Diagnose & suggest changes", disabled=not up, key="diagnose"):
-        digest = rt.report_digest(report)
-        system = (
-            "You tune the selection thresholds of an AS-ALD screening pipeline. "
-            "The pipeline already computed adsorption energies; you only adjust "
-            "the decision thresholds, you do NOT invent energies. Goal: find an "
-            "inhibitor that binds SiNx (NGS) strongly and SiO2 (GS) weakly "
-            "(large positive contrast = dE_GS - dE_NGS). If no inhibitor was "
-            "accepted, decide whether a threshold is too strict given the "
-            "observed numbers, and propose the smallest change that would admit "
-            "a genuinely selective candidate WITHOUT accepting a non-selective "
-            "one. Only propose changes you can justify from the numbers. "
-            "Thresholds (eV unless noted): "
-            "bind_threshold_eV (inhibitor must be at least this favourable on "
-            "NGS), spare_threshold_eV (should be no more favourable than this on "
-            "GS), min_contrast_eV (minimum GS-NGS contrast), "
-            "precursor_threshold_eV, contrast_weight, volatility_bonus, "
-            "volatility_penalty, strain_penalty."
-        )
-        user = (f"Current thresholds: {json.dumps(cfg)}\n\n"
-                f"RUN REPORT\n----------\n{digest}\n\n"
-                "Return a diagnosis, a list of threshold changes (key, to, "
-                "reason), and the expected effect.")
-        try:
-            with st.spinner("Model is analysing the run…"):
-                suggestion = llm.chat_json(
-                    model,
-                    [{"role": "system", "content": system},
-                     {"role": "user", "content": user}],
-                    rt.SUGGESTION_SCHEMA)
-            st.session_state["suggestion"] = suggestion
-        except llm.OllamaError as e:
-            st.error(str(e))
+#     # -- 1. Ask the model for a structured suggestion --
+#     st.markdown("**1 · Ask the model to diagnose this run**")
+#     if st.button("Diagnose & suggest changes", disabled=not up, key="diagnose"):
+#         digest = rt.report_digest(report)
+#         system = (
+#             "You tune the selection thresholds of an AS-ALD screening pipeline. "
+#             "The pipeline already computed adsorption energies; you only adjust "
+#             "the decision thresholds, you do NOT invent energies. Goal: find an "
+#             "inhibitor that binds SiNx (NGS) strongly and SiO2 (GS) weakly "
+#             "(large positive contrast = dE_GS - dE_NGS). If no inhibitor was "
+#             "accepted, decide whether a threshold is too strict given the "
+#             "observed numbers, and propose the smallest change that would admit "
+#             "a genuinely selective candidate WITHOUT accepting a non-selective "
+#             "one. Only propose changes you can justify from the numbers. "
+#             "Thresholds (eV unless noted): "
+#             "bind_threshold_eV (inhibitor must be at least this favourable on "
+#             "NGS), spare_threshold_eV (should be no more favourable than this on "
+#             "GS), min_contrast_eV (minimum GS-NGS contrast), "
+#             "precursor_threshold_eV, contrast_weight, volatility_bonus, "
+#             "volatility_penalty, strain_penalty."
+#         )
+#         user = (f"Current thresholds: {json.dumps(cfg)}\n\n"
+#                 f"RUN REPORT\n----------\n{digest}\n\n"
+#                 "Return a diagnosis, a list of threshold changes (key, to, "
+#                 "reason), and the expected effect.")
+#         try:
+#             with st.spinner("Model is analysing the run…"):
+#                 suggestion = llm.chat_json(
+#                     model,
+#                     [{"role": "system", "content": system},
+#                      {"role": "user", "content": user}],
+#                     rt.SUGGESTION_SCHEMA)
+#             st.session_state["suggestion"] = suggestion
+#         except llm.OllamaError as e:
+#             st.error(str(e))
 
-    sugg = st.session_state.get("suggestion")
-    if sugg:
-        st.info(f"**Diagnosis.** {sugg.get('diagnosis','')}")
-        st.write(f"*Expected effect:* {sugg.get('expected_effect','')}")
-        for ch in sugg.get("changes", []):
-            k = ch.get("key")
-            if k in cfg:
-                st.write(f"- `{k}`: {cfg[k]} → **{ch.get('to')}** — "
-                         f"{ch.get('reason','')}")
+#     sugg = st.session_state.get("suggestion")
+#     if sugg:
+#         st.info(f"**Diagnosis.** {sugg.get('diagnosis','')}")
+#         st.write(f"*Expected effect:* {sugg.get('expected_effect','')}")
+#         for ch in sugg.get("changes", []):
+#             k = ch.get("key")
+#             if k in cfg:
+#                 st.write(f"- `{k}`: {cfg[k]} → **{ch.get('to')}** — "
+#                          f"{ch.get('reason','')}")
 
-    # -- 2. Editable thresholds (seeded by the suggestion) --
-    st.markdown("**2 · Review / edit thresholds**")
-    proposed = {c["key"]: c["to"] for c in (sugg or {}).get("changes", [])
-                if c.get("key") in cfg}
-    overrides = {}
-    cols = st.columns(2)
-    for i, (k, v) in enumerate(cfg.items()):
-        lo, hi = rt.CONFIG_BOUNDS.get(k, (v - 1, v + 1))
-        start = float(proposed.get(k, v))
-        start = max(lo, min(hi, start))
-        step = 0.05 if hi - lo <= 3 else 0.1
-        overrides[k] = cols[i % 2].slider(
-            k, float(lo), float(hi), start, step=step,
-            help="⟵ model-proposed value" if k in proposed else None)
+#     # -- 2. Editable thresholds (seeded by the suggestion) --
+#     st.markdown("**2 · Review / edit thresholds**")
+#     proposed = {c["key"]: c["to"] for c in (sugg or {}).get("changes", [])
+#                 if c.get("key") in cfg}
+#     overrides = {}
+#     cols = st.columns(2)
+#     for i, (k, v) in enumerate(cfg.items()):
+#         lo, hi = rt.CONFIG_BOUNDS.get(k, (v - 1, v + 1))
+#         start = float(proposed.get(k, v))
+#         start = max(lo, min(hi, start))
+#         step = 0.05 if hi - lo <= 3 else 0.1
+#         overrides[k] = cols[i % 2].slider(
+#             k, float(lo), float(hi), start, step=step,
+#             help="⟵ model-proposed value" if k in proposed else None)
 
-    changed_keys = {k: ov for k, ov in overrides.items()
-                    if abs(ov - cfg[k]) > 1e-9}
+#     changed_keys = {k: ov for k, ov in overrides.items()
+#                     if abs(ov - cfg[k]) > 1e-9}
 
-    # -- 3. Instant re-selection --
-    st.markdown("**3 · Re-run selection (instant, no GPU)**")
-    if st.button("Re-run selection with these thresholds", type="primary",
-                 key="reselect"):
-        try:
-            new = rt.reselect(report, overrides)
-            st.session_state["reselect_result"] = new
-        except (ValueError, KeyError) as e:
-            st.error(f"Re-selection failed: {e}")
+#     # -- 3. Instant re-selection --
+#     st.markdown("**3 · Re-run selection (instant, no GPU)**")
+#     if st.button("Re-run selection with these thresholds", type="primary",
+#                  key="reselect"):
+#         try:
+#             new = rt.reselect(report, overrides)
+#             st.session_state["reselect_result"] = new
+#         except (ValueError, KeyError) as e:
+#             st.error(f"Re-selection failed: {e}")
 
-    new = st.session_state.get("reselect_result")
-    if new:
-        old_rec = rec.get("inhibitor")
-        new_rec = new["selection"]["recommendation"]["inhibitor"]
-        a, b = st.columns(2)
-        a.metric("Inhibitor (this report)", old_rec or "— none")
-        b.metric("Inhibitor (after re-selection)", new_rec or "— none",
-                 delta=("changed" if new_rec != old_rec else "same"),
-                 delta_color="normal" if new_rec != old_rec else "off")
-        rows = []
-        for c in new["selection"]["inhibitors"]:
-            rows.append({
-                "reagent": c["name"],
-                "dE_GS": c["dE_GS"], "dE_NGS": c["dE_NGS"],
-                "contrast": c["contrast"], "score": c["score"],
-                "status": "accept" if c["accepted"]
-                else "reject: " + "; ".join(c["reasons"]),
-            })
-        st.dataframe(rows, width="stretch", hide_index=True)
-        if new["selectivity"]:
-            st.caption("Selectivity vs 90% @ 10 nm target")
-            st.dataframe(
-                [{"inhibitor": n,
-                  "S@target": s.get("selectivity_at_target"),
-                  "meets_target": bool(s.get("meets_target"))}
-                 for n, s in new["selectivity"].items()],
-                width="stretch", hide_index=True)
+#     new = st.session_state.get("reselect_result")
+#     if new:
+#         old_rec = rec.get("inhibitor")
+#         new_rec = new["selection"]["recommendation"]["inhibitor"]
+#         a, b = st.columns(2)
+#         a.metric("Inhibitor (this report)", old_rec or "— none")
+#         b.metric("Inhibitor (after re-selection)", new_rec or "— none",
+#                  delta=("changed" if new_rec != old_rec else "same"),
+#                  delta_color="normal" if new_rec != old_rec else "off")
+#         rows = []
+#         for c in new["selection"]["inhibitors"]:
+#             rows.append({
+#                 "reagent": c["name"],
+#                 "dE_GS": c["dE_GS"], "dE_NGS": c["dE_NGS"],
+#                 "contrast": c["contrast"], "score": c["score"],
+#                 "status": "accept" if c["accepted"]
+#                 else "reject: " + "; ".join(c["reasons"]),
+#             })
+#         st.dataframe(rows, width="stretch", hide_index=True)
+#         if new["selectivity"]:
+#             st.caption("Selectivity vs 90% @ 10 nm target")
+#             st.dataframe(
+#                 [{"inhibitor": n,
+#                   "S@target": s.get("selectivity_at_target"),
+#                   "meets_target": bool(s.get("meets_target"))}
+#                  for n, s in new["selectivity"].items()],
+#                 width="stretch", hide_index=True)
 
-        # -- 4. Persist to criteria file --
-        st.markdown("**4 · Persist thresholds & (optionally) full re-run**")
-        if changed_keys:
-            if st.button("Write these thresholds to selection_criteria.md",
-                         key="persist"):
-                diffs = rt.apply_config_to_md(overrides)
-                if diffs:
-                    st.success("Updated: " + ", ".join(
-                        f"{k} {o}→{n}" for k, o, n in diffs))
-                else:
-                    st.info("No values differed from the file.")
-        else:
-            st.caption("Sliders match the current file — nothing to persist.")
+#         # -- 4. Persist to criteria file --
+#         st.markdown("**4 · Persist thresholds & (optionally) full re-run**")
+#         if changed_keys:
+#             if st.button("Write these thresholds to selection_criteria.md",
+#                          key="persist"):
+#                 diffs = rt.apply_config_to_md(overrides)
+#                 if diffs:
+#                     st.success("Updated: " + ", ".join(
+#                         f"{k} {o}→{n}" for k, o, n in diffs))
+#                 else:
+#                     st.info("No values differed from the file.")
+#         else:
+#             st.caption("Sliders match the current file — nothing to persist.")
 
-        st.caption("Need *new* adsorption energies (a new candidate molecule or "
-                   "a different structure)? Threshold tuning above doesn't — but "
-                   "for that, use the **🚀 Submit job** tab to launch a screen "
-                   "with your chosen substrate, structure, and inhibitors.")
+#         st.caption("Need *new* adsorption energies (a new candidate molecule or "
+#                    "a different structure)? Threshold tuning above doesn't — but "
+#                    "for that, use the **🚀 Submit job** tab to launch a screen "
+#                    "with your chosen substrate, structure, and inhibitors.")
+
+
+# --------------------------------------------------------------------------
+# Job 4 — Autonomous Phase 2 screening agent (finds the best inhibitor)
+# --------------------------------------------------------------------------
+
+def _render_screen_table(screened: dict) -> None:
+    st.dataframe(
+        [{"reagent": c.get("name"), "dE_GS": c.get("dE_GS"),
+          "dE_NGS": c.get("dE_NGS"), "contrast": c.get("contrast"),
+          "binds_NGS": c.get("binds_NGS"), "selective": c.get("selective"),
+          **({"error": c["error"]} if "error" in c else {})}
+         for c in screened.values()],
+        width="stretch", hide_index=True)
+
+
+def _render_agent_event(ev: dict) -> None:
+    """Render one trace event from agent_loop.run_agent into the page."""
+    step, kind = ev.get("step"), ev["type"]
+    if kind == "setup":
+        st.caption(f"Surfaces {ev['surfaces']} loaded from "
+                   f"`{os.path.relpath(ev['dir'], REPO)}`. "
+                   + ("⚠️ Lennard-Jones placeholder — energies not physical."
+                      if ev["placeholder"] else "MLIP calculator ready."))
+    elif kind == "assistant":
+        st.markdown(f"**Step {step} · reasoning**")
+        st.markdown(f"> {ev['text']}")
+    elif kind == "tool_call":
+        st.markdown(f"**Step {step} · action** — calling `{ev['name']}`")
+        if ev["args"]:
+            st.code(json.dumps(ev["args"], indent=2), language="json")
+    elif kind == "tool_result":
+        res, name = ev["result"], ev["name"]
+        with st.expander(f"Step {step} · result of `{name}`", expanded=True):
+            if name == "screen" and isinstance(res.get("screened"), dict):
+                _render_screen_table(res["screened"])
+            elif name == "rank_screened" and isinstance(res.get("ranking"), list):
+                best = res.get("best_selective")
+                st.caption(f"best selective so far: "
+                           f"{best['name'] if best else '— none yet'}")
+                _render_screen_table({r["name"]: r for r in res["ranking"]})
+            else:
+                st.code(json.dumps(res, indent=2, default=str), language="json")
+    elif kind == "final":
+        st.success("Agent finished")
+        st.markdown(ev["text"])
+    elif kind == "error":
+        st.error(ev["message"])
+
+
+with tab_agent:
+    st.subheader("Autonomous screening agent — find the best inhibitor")
+    st.caption("The on-device model drives the **Phase 2 energetics screen**: it "
+               "calls `screen(...)` on batches of inhibitors, reads the "
+               "dE_GS / dE_NGS / contrast that come back, and iterates toward the "
+               "most selective candidate — screening incrementally instead of "
+               "brute-forcing the whole library. Each screen runs the MLIP, so "
+               "this uses the GPU; don't run a pipeline job at the same time.")
+
+    surf_sets_a = rt.find_surface_sets()
+    if not surf_sets_a:
+        st.warning("No reusable surface slabs on disk. Build surfaces first "
+                   "(Submit job tab, or run_surface_builder.py) before screening.")
+    rel_dirs_a = {os.path.relpath(d, REPO): d for d in surf_sets_a}
+
+    default_goal = (
+        "Screen the inhibitor library and identify the single best selective "
+        "inhibitor for passivating SiNx (NGS) while sparing SiO2 (GS): the "
+        "largest positive contrast (dE_GS - dE_NGS) with favourable NGS binding. "
+        "Screen strategically and report the winner with its numbers.")
+    a_goal = st.text_area("Goal", value=default_goal, height=110, key="agent_goal")
+
+    c1a, c2a, c3a = st.columns(3)
+    chosen_dir = None
+    if rel_dirs_a:
+        chosen_dir = rel_dirs_a[c1a.selectbox(
+            "Surface set", list(rel_dirs_a),
+            format_func=lambda r: f"{r}/ "
+            f"({', '.join(rt.set_materials(surf_sets_a[rel_dirs_a[r]])) or '—'})",
+            key="agent_surf")]
+    a_steps = c2a.slider("Max steps", 3, 20, agent_loop.MAX_STEPS_DEFAULT,
+                         key="agent_steps")
+    a_sites = c3a.slider("Sites per screen", 1, 4, 2, key="agent_sites",
+                         help="Representative sites per site-type per surface. "
+                         "Fewer = faster but noisier energies.")
+
+    disabled_a = (not up) or (not surf_sets_a)
+    if not up:
+        st.info("Model offline — start Ollama (`ollama serve`) to run the agent.")
+    if st.button("Run screening agent", type="primary", disabled=disabled_a,
+                 key="run_agent"):
+        with st.spinner("Agent screening… each screen runs the MLIP, so this "
+                        "can take a while; the trace fills in as it goes."):
+            try:
+                for ev in agent_loop.run_agent(model, a_goal,
+                                               surface_dir=chosen_dir,
+                                               max_steps=a_steps,
+                                               max_sites=a_sites):
+                    _render_agent_event(ev)
+            except llm.OllamaError as e:
+                st.error(str(e))
 
 
 # --------------------------------------------------------------------------

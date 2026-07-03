@@ -102,6 +102,37 @@ def chat_stream(model: str, messages: List[Dict[str, str]],
                 break
 
 
+def chat_tools(model: str, messages: List[Dict[str, Any]],
+               tools: List[Dict[str, Any]],
+               options: Optional[Dict[str, Any]] = None,
+               timeout: float = 600.0) -> Dict[str, Any]:
+    """Return the assistant *message* for a tool-enabled turn.
+
+    Passes `tools` (OpenAI-style function schemas) to Ollama's /api/chat. The
+    returned dict is the raw ``message`` object: it has ``content`` and, when
+    the model decides to act, a ``tool_calls`` list of
+    ``{"function": {"name", "arguments"}}``. The agent loop dispatches those,
+    feeds results back as role="tool" messages, and calls this again. Kept
+    non-streaming because tool_calls only arrive complete.
+    """
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "tools": tools,
+        "options": {**DEFAULT_OPTIONS, **(options or {})},
+    }
+    try:
+        resp = _post("/api/chat", payload, timeout=timeout)
+    except urllib.error.URLError as e:
+        raise OllamaError(f"cannot reach Ollama at {OLLAMA_HOST}: {e}") from e
+    with resp:
+        obj = json.loads(resp.read())
+    if obj.get("error"):
+        raise OllamaError(obj["error"])
+    return obj.get("message", {}) or {}
+
+
 def chat_json(model: str, messages: List[Dict[str, str]],
               schema: Dict[str, Any],
               options: Optional[Dict[str, Any]] = None,
