@@ -1,0 +1,596 @@
+{
+  "mode": "test",
+  "materials": [
+    "SiO2",
+    "SiNx"
+  ],
+  "placeholder_calc": false,
+  "validation": {
+    "SiO2": [
+      {
+        "index": 0,
+        "area_nm2": 19.041,
+        "structure_ok": false,
+        "metrics": {
+          "density_gcc": {
+            "value": 0.21217372193760675,
+            "target": 2.2,
+            "tol": 0.1,
+            "pass": false
+          },
+          "Si-O_bond_A": {
+            "value": 1.625,
+            "target": 1.61,
+            "tol": 0.08,
+            "pass": true
+          },
+          "Si_CN": {
+            "value": 3.5185185185185186,
+            "target": 4.0,
+            "tol": 0.3,
+            "pass": false
+          },
+          "O_CN": {
+            "value": 1.596638655462185,
+            "target": 2.0,
+            "tol": 0.3,
+            "pass": false
+          }
+        }
+      }
+    ],
+    "SiNx": [
+      {
+        "index": 0,
+        "area_nm2": 84.589,
+        "structure_ok": false,
+        "metrics": {
+          "density_gcc": {
+            "value": 0.05547191752834689,
+            "target": 3.0,
+            "tol": 0.2,
+            "pass": false
+          },
+          "Si-N_bond_A": {
+            "value": 1.725,
+            "target": 1.73,
+            "tol": 0.08,
+            "pass": true
+          },
+          "Si_CN": {
+            "value": 3.0,
+            "target": 3.9,
+            "tol": 0.4,
+            "pass": false
+          },
+          "N_CN": {
+            "value": 2.1956521739130435,
+            "target": 2.7,
+            "tol": 0.4,
+            "pass": false
+          }
+        }
+      }
+    ]
+  },
+  "energetics": {
+    "DMATMS": {
+      "SiO2": {
+        "dE_min": -3.6889877319335938,
+        "dE_mean": -3.0721257527669272,
+        "per_site": {
+          "OH": -3.072
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": -9.069969177246094,
+        "dE_mean": -2.4805730183919272,
+        "per_site": {
+          "NH_bridge": -3.289,
+          "NH2": -1.672
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      }
+    },
+    "NH3": {
+      "SiO2": {
+        "dE_min": -4.286354064941406,
+        "dE_mean": -2.6063410441080728,
+        "per_site": {
+          "OH": -2.606
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": -12.151466369628906,
+        "dE_mean": -8.340838114420572,
+        "per_site": {
+          "NH_bridge": -8.341
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      }
+    },
+    "pyridine": {
+      "SiO2": {
+        "dE_min": -4.562744140625,
+        "dE_mean": -2.8931884765625,
+        "per_site": {
+          "OH": -2.893
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": -9.542724609375,
+        "dE_mean": -3.1158040364583335,
+        "per_site": {
+          "NH_bridge": -4.677,
+          "NH2": -1.554
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      }
+    },
+    "ETS": {
+      "SiO2": {
+        "dE_min": -0.06656980514526367,
+        "dE_mean": 2.3055005073547363,
+        "per_site": {
+          "OH": 2.306
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": -7.027873516082764,
+        "dE_mean": -0.553101380666097,
+        "per_site": {
+          "NH2": -0.553
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      }
+    },
+    "ODTS": {
+      "SiO2": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      }
+    },
+    "ODPA": {
+      "SiO2": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      }
+    },
+    "UDA": {
+      "SiO2": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      }
+    },
+    "hacac": {
+      "SiO2": {
+        "dE_min": -4.8289337158203125,
+        "dE_mean": -3.703364054361979,
+        "per_site": {
+          "OH": -3.703
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": -2.5305938720703125,
+        "dE_mean": -1.1222279866536458,
+        "per_site": {
+          "NH2": -1.122
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      }
+    },
+    "BDMAS": {
+      "SiO2": {
+        "dE_min": -8.603202819824219,
+        "dE_mean": -7.986951192220052,
+        "per_site": {
+          "OH": -7.987
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 0
+      }
+    },
+    "SiCl4": {
+      "SiO2": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 0
+      }
+    },
+    "DIPAS": {
+      "SiO2": {
+        "dE_min": -4.47906494140625,
+        "dE_mean": -3.45440673828125,
+        "per_site": {
+          "OH": -3.454
+        },
+        "n_surfaces": 1,
+        "n_clash": 0
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 0
+      }
+    },
+    "BDIPADS": {
+      "SiO2": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 3
+      },
+      "SiNx": {
+        "dE_min": NaN,
+        "dE_mean": NaN,
+        "per_site": {},
+        "n_surfaces": 0,
+        "n_clash": 0
+      }
+    }
+  },
+  "selection": {
+    "config": {
+      "bind_threshold_eV": -0.1,
+      "spare_threshold_eV": -0.2,
+      "precursor_threshold_eV": -0.3,
+      "contrast_weight": 1.0,
+      "volatility_bonus": 0.15,
+      "volatility_penalty": 0.15,
+      "strain_penalty": 0.1,
+      "min_contrast_eV": 0.3
+    },
+    "inhibitors": [
+      {
+        "name": "NH3",
+        "role": "inhibitor",
+        "dE_GS": -2.6063410441080728,
+        "dE_NGS": -8.340838114420572,
+        "contrast": 5.7344970703125,
+        "score": 8.802,
+        "accepted": true,
+        "reasons": [
+          "also caps GS (dE=-2.61 < -0.20 eV)"
+        ],
+        "terms": {
+          "contrast": 5.734,
+          "ngs_binding": 4.12,
+          "gs_penalty": -1.203,
+          "volatility": 0.15,
+          "strain": 0.0
+        },
+        "volatility": "high"
+      },
+      {
+        "name": "ETS",
+        "role": "inhibitor",
+        "dE_GS": 2.3055005073547363,
+        "dE_NGS": -0.553101380666097,
+        "contrast": 2.8586018880208335,
+        "score": 3.085,
+        "accepted": true,
+        "reasons": [],
+        "terms": {
+          "contrast": 2.859,
+          "ngs_binding": 0.227,
+          "gs_penalty": -0.0,
+          "volatility": 0.0,
+          "strain": 0.0
+        },
+        "volatility": "medium"
+      },
+      {
+        "name": "pyridine",
+        "role": "inhibitor",
+        "dE_GS": -2.8931884765625,
+        "dE_NGS": -3.1158040364583335,
+        "contrast": 0.22261555989583348,
+        "score": 0.384,
+        "accepted": false,
+        "reasons": [
+          "also caps GS (dE=-2.89 < -0.20 eV)",
+          "insufficient contrast (+0.22 < +0.30 eV)"
+        ],
+        "terms": {
+          "contrast": 0.223,
+          "ngs_binding": 1.508,
+          "gs_penalty": -1.347,
+          "volatility": 0.0,
+          "strain": 0.0
+        },
+        "volatility": "medium"
+      },
+      {
+        "name": "DMATMS",
+        "role": "inhibitor",
+        "dE_GS": -3.0721257527669272,
+        "dE_NGS": -2.4805730183919272,
+        "contrast": -0.591552734375,
+        "score": -0.687,
+        "accepted": false,
+        "reasons": [
+          "also caps GS (dE=-3.07 < -0.20 eV)",
+          "insufficient contrast (-0.59 < +0.30 eV)"
+        ],
+        "terms": {
+          "contrast": -0.592,
+          "ngs_binding": 1.19,
+          "gs_penalty": -1.436,
+          "volatility": 0.15,
+          "strain": 0.0
+        },
+        "volatility": "high"
+      },
+      {
+        "name": "hacac",
+        "role": "inhibitor",
+        "dE_GS": -3.703364054361979,
+        "dE_NGS": -1.1222279866536458,
+        "contrast": -2.581136067708333,
+        "score": -3.822,
+        "accepted": false,
+        "reasons": [
+          "also caps GS (dE=-3.70 < -0.20 eV)",
+          "insufficient contrast (-2.58 < +0.30 eV)"
+        ],
+        "terms": {
+          "contrast": -2.581,
+          "ngs_binding": 0.511,
+          "gs_penalty": -1.752,
+          "volatility": 0.0,
+          "strain": 0.0
+        },
+        "volatility": "medium"
+      },
+      {
+        "name": "ODTS",
+        "role": "inhibitor",
+        "dE_GS": null,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": -1000000000.0,
+        "accepted": false,
+        "reasons": [
+          "no NGS data"
+        ],
+        "terms": {},
+        "volatility": "low"
+      },
+      {
+        "name": "ODPA",
+        "role": "inhibitor",
+        "dE_GS": null,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": -1000000000.0,
+        "accepted": false,
+        "reasons": [
+          "no NGS data"
+        ],
+        "terms": {},
+        "volatility": "low"
+      },
+      {
+        "name": "UDA",
+        "role": "inhibitor",
+        "dE_GS": null,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": -1000000000.0,
+        "accepted": false,
+        "reasons": [
+          "no NGS data"
+        ],
+        "terms": {},
+        "volatility": "low"
+      }
+    ],
+    "precursors": [
+      {
+        "name": "BDMAS",
+        "role": "precursor",
+        "dE_GS": -7.986951192220052,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": 8.137,
+        "accepted": true,
+        "reasons": [],
+        "terms": {
+          "gs_binding": 7.987,
+          "volatility": 0.15
+        },
+        "volatility": "high"
+      },
+      {
+        "name": "DIPAS",
+        "role": "precursor",
+        "dE_GS": -3.45440673828125,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": 3.604,
+        "accepted": true,
+        "reasons": [],
+        "terms": {
+          "gs_binding": 3.454,
+          "volatility": 0.15
+        },
+        "volatility": "high"
+      },
+      {
+        "name": "SiCl4",
+        "role": "precursor",
+        "dE_GS": null,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": -1000000000.0,
+        "accepted": false,
+        "reasons": [
+          "no GS data"
+        ],
+        "terms": {},
+        "volatility": "high"
+      },
+      {
+        "name": "BDIPADS",
+        "role": "precursor",
+        "dE_GS": null,
+        "dE_NGS": null,
+        "contrast": null,
+        "score": -1000000000.0,
+        "accepted": false,
+        "reasons": [
+          "no GS data"
+        ],
+        "terms": {},
+        "volatility": "medium"
+      }
+    ],
+    "recommendation": {
+      "inhibitor": "NH3",
+      "precursor": "BDMAS",
+      "inhibitor_dE_NGS": -8.340838114420572,
+      "inhibitor_dE_GS": -2.6063410441080728,
+      "inhibitor_contrast": 5.7344970703125
+    }
+  },
+  "selectivity": {
+    "NH3": {
+      "theta_GS": 0.9997808125784285,
+      "theta_NGS": 0.999999999999976,
+      "gpc_GS_A": 0.0002630249058857448,
+      "gpc_NGS_A": 2.8776980798284056e-14,
+      "n_delay_GS": 24.994520314460715,
+      "n_delay_NGS": 24.9999999999994,
+      "n_target": 380217.12751717574,
+      "selectivity_at_target": 0.9999999997811913,
+      "thk_NGS_at_target_nm": 5.035971639699727e-13,
+      "max_thickness_at_target_selectivity_nm": 0.004603079982377859,
+      "meets_target": 1.0
+    },
+    "ETS": {
+      "theta_GS": 1.3376442695018525e-05,
+      "theta_NGS": 0.5529026333283934,
+      "gpc_GS_A": 1.199983948268766,
+      "gpc_NGS_A": 0.5365168400059279,
+      "n_delay_GS": 0.0003344110673754631,
+      "n_delay_NGS": 13.822565833209834,
+      "n_target": 83.33478246286958,
+      "selectivity_at_target": 0.45610000663202976,
+      "thk_NGS_at_target_nm": 3.76513752188903,
+      "max_thickness_at_target_selectivity_nm": 1.7999357936118514,
+      "meets_target": 0.0
+    },
+    "pyridine": {
+      "theta_GS": 0.9999304053946715,
+      "theta_NGS": 0.9999714326103762,
+      "gpc_GS_A": 8.351352639421882e-05,
+      "gpc_NGS_A": 3.428086754850845e-05,
+      "n_delay_GS": 24.998260134866786,
+      "n_delay_NGS": 24.999285815259405,
+      "n_target": 1197435.816813744,
+      "selectivity_at_target": 0.4179565944741463,
+      "thk_NGS_at_target_nm": 0.0005999176303861476,
+      "max_thickness_at_target_selectivity_nm": 0.0,
+      "meets_target": 0.0
+    },
+    "DMATMS": {
+      "theta_GS": 0.9999659791515816,
+      "theta_NGS": 0.9996375610741184,
+      "gpc_GS_A": 4.082501810209749e-05,
+      "gpc_NGS_A": 0.0004349267110579369,
+      "n_delay_GS": 24.99914947878954,
+      "n_delay_NGS": 24.99093902685296,
+      "n_target": 2449503.3986425158,
+      "selectivity_at_target": -0.8283841564263537,
+      "thk_NGS_at_target_nm": 0.007611611529438877,
+      "max_thickness_at_target_selectivity_nm": 0.0,
+      "meets_target": 0.0
+    },
+    "hacac": {
+      "theta_GS": 0.9999972761355745,
+      "theta_NGS": 0.9233608413586877,
+      "gpc_GS_A": 3.2686373105494935e-06,
+      "gpc_NGS_A": 0.09196699036957479,
+      "n_delay_GS": 24.999931903389363,
+      "n_delay_NGS": 23.084021033967193,
+      "n_target": 30593813.93982163,
+      "selectivity_at_target": -0.9999296894257877,
+      "thk_NGS_at_target_nm": 1.6270430133793035,
+      "max_thickness_at_target_selectivity_nm": 0.0,
+      "meets_target": 0.0
+    }
+  },
+  "growth_params": {
+    "gpc_intrinsic_A": 1.2,
+    "dE_half_eV": -0.5,
+    "width_eV": 0.25,
+    "delay_max_cycles": 25.0,
+    "target_thickness_nm": 10.0,
+    "target_selectivity": 0.9
+  },
+  "runtime_s": 500.2
+}
