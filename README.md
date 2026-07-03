@@ -13,7 +13,7 @@ Achieve **90% selectivity at 10 nm oxide thickness** for area-selective depositi
 ```
 AI-Scientist/
 ├── surface_builder.py       # Core module — amorphous surface construction pipeline
-├── run_surfaces.py          # CLI driver script (replaces Colab notebook)
+├── run_surface_builder.py          # CLI driver script (replaces Colab notebook)
 ├── AS_ALD_surface_builder.ipynb  # Original Colab notebook (reference)
 ├── AS_ALD_surface_builder.py     # Converted notebook (reference)
 ├── AI_Scientist.pdf         # Challenge brief
@@ -55,13 +55,13 @@ python3 -c "import torch; print('CUDA:', torch.cuda.is_available(), '|', torch.c
 cd AI-Scientist/
 
 # Quick validation (~3-5 min on GPU, ~10-15 min on CPU)
-python3 run_surfaces.py --mode test
+python3 run_surface_builder.py --mode test
 
 # Fast exploration (~10-15 min on GPU)
-python3 run_surfaces.py --mode fast
+python3 run_surface_builder.py --mode fast
 
 # Full production run (~2-4 hours on GPU)
-python3 run_surfaces.py --mode full
+python3 run_surface_builder.py --mode full
 ```
 
 ## 📖 Usage Guide
@@ -69,13 +69,13 @@ python3 run_surfaces.py --mode full
 ### CLI Options
 
 ```
-python3 run_surfaces.py [OPTIONS]
+python3 run_surface_builder.py [OPTIONS]
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--mode` | `test` | MD protocol: `test` (~3-5 min), `fast` (~10-15 min), `full` (~2-4 hrs) per material |
-| `--materials` | `SiO2 SiNx` | Materials to build: `SiO2`, `SiNx`, or both |
+| `--material` | `SiO2 SiNx` | Materials to build: `SiO2`, `SiNx`, or both |
 | `--n-bulk` | 1 (test/fast), 3 (full) | Number of independent bulk replicas |
 | `--target-accepted` | — | Minimum accepted surfaces (triggers over-generation) |
 | `--no-gate` | off | Disable quality gate (keep all surfaces) |
@@ -86,29 +86,29 @@ python3 run_surfaces.py [OPTIONS]
 | `--use-published` | off | Load published amorphous bulks from literature directory |
 | `--literature-dir` | `literature/` | Directory containing published bulk structures |
 | `--dtype` | `float32` | MACE precision (`float32` faster, `float64` more accurate) |
-| `--output-dir` | `.` | Directory for output `.xyz` files |
+| `--outdir` | `.` | Directory for output `.xyz` files |
 | `--prefix` | auto | Output filename prefix |
 
 ### Examples
 
 ```bash
 # Single material, test mode
-python3 run_surfaces.py --mode test --materials SiO2
+python3 run_surface_builder.py --mode test --material SiO2
 
 # Full production with quality gate, targeting 4 accepted surfaces
-python3 run_surfaces.py --mode full --n-bulk 3 --target-accepted 4
+python3 run_surface_builder.py --mode full --n-bulk 3 --target-accepted 4
 
 # Use a larger supercell for better statistics
-python3 run_surfaces.py --mode full --supercell 3 3 2
+python3 run_surface_builder.py --mode full --supercell 3 3 2
 
 # Use published structures (skips melt-quench entirely)
-python3 run_surfaces.py --mode test --use-published
+python3 run_surface_builder.py --mode test --use-published
 
 # Check what's in the cache
-python3 run_surfaces.py --list-cache
+python3 run_surface_builder.py --list-cache
 
 # Output to a specific directory
-python3 run_surfaces.py --mode test --output-dir results/
+python3 run_surface_builder.py --mode test --outdir results/
 ```
 
 ## ⚡ Performance Optimizations
@@ -123,10 +123,10 @@ The most expensive step is **melt-quench** (premelt → melt → quench → rela
 
 ```bash
 # First run: ~5 min (melt-quench runs)
-python3 run_surfaces.py --mode test --materials SiO2
+python3 run_surface_builder.py --mode test --material SiO2
 
 # Second run: ~1 min (melt-quench skipped, only cleave+passivate+anneal)
-python3 run_surfaces.py --mode test --materials SiO2
+python3 run_surface_builder.py --mode test --material SiO2
 ```
 
 To clear the cache:
@@ -152,7 +152,7 @@ You can skip melt-quench entirely by providing published amorphous structures fr
 
 3. Run with `--use-published`:
    ```bash
-   python3 run_surfaces.py --mode test --use-published
+   python3 run_surface_builder.py --mode test --use-published
    ```
 
 ### Supercell Size
@@ -166,7 +166,7 @@ The default supercell is `(2,2,2)`, optimized for speed:
 
 Smaller systems run **2–4× faster** (MD scales ~O(N²)). Use larger supercells for production quality:
 ```bash
-python3 run_surfaces.py --mode full --supercell 3 3 2
+python3 run_surface_builder.py --mode full --supercell 3 3 2
 ```
 
 ## 🔬 Pipeline Overview

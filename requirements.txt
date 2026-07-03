@@ -12,3 +12,11 @@ mace-torch>=0.3.6
 # torch is pulled in by mace-torch; pin a CUDA build matching your driver, e.g.
 # pip install torch --index-url https://download.pytorch.org/whl/cu121
 torch>=2.1
+
+# On-device LLM assistant UI (app.py, agent/). Job 2 = report explanation,
+# Job 3 = threshold tuning + instant re-selection. Talks to a local Ollama
+# server over HTTP (stdlib only), so no Python SDK is needed for the model.
+#   1. install Ollama:  https://ollama.com  (or the standalone tarball)
+#   2. ollama serve &   ; ollama pull qwen2.5:7b-instruct-q4_K_M
+#   3. streamlit run app.py
+streamlit>=1.30

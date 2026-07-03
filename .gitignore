@@ -1,1 +1,50 @@
-__pycache__
+# ── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ── Virtual environments ─────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── Pipeline results / reports (generated) ───────────────
+results/
+results_*/
+report*.json
+report*.md
+selectivity_*.csv
+
+# ── Run logs ─────────────────────────────────────────────
+*.log
+*_run.log
+
+# ── Caches (regenerated on demand) ───────────────────────
+bulk_cache/
+
+# ── Generated surface structures ─────────────────────────
+# Amorphous slabs produced by run_surface_builder.py / run_pipeline.py.
+SiO2_*.xyz
+SiNx_*.xyz
+*_quick_*.xyz
+*_test_*.xyz
+*_fast_*.xyz
+*_full_*.xyz
+*_prod_*.xyz
+
+# ── External / downloaded data (not source) ──────────────
+# Published amorphous bulks (Kim et al. / Zenodo) and their conversions.
+literature/
+published_xyz/
+
+# ── OS / editor cruft ────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
