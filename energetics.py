@@ -37,7 +37,6 @@ from ase import Atoms
 from ase.optimize import BFGS
 from ase.constraints import FixAtoms
 from ase.neighborlist import NeighborList, natural_cutoffs
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import inhibitor_library as lib
 
@@ -47,6 +46,20 @@ import inhibitor_library as lib
 # ---------------------------------------------------------------------------
 _MOL_ENERGY_CACHE = {}
 _SLAB_ENERGY_CACHE = {}
+
+# Physical sanity bound for a reaction/adsorption energy (eV). Real AS-ALD dE
+# values sit within a few eV; the selectivity model only resolves the ~±1 eV
+# window. A |dE| beyond this is an atomic clash (bad molecule placement) or a
+# broken/un-relaxed surface -- e.g. the +305 eV a bulky silane returns when
+# dropped onto a raw slab -- NOT chemistry. Such a value is dropped at the
+# source (treated like NaN) so it can never enter dE_mean/dE_min and mislead
+# selection, selectivity, or the LLM agent downstream.
+MAX_ABS_DE_EV = 15.0
+
+
+def _is_physical_dE(dE):
+    """True if dE is a finite, physically plausible reaction energy."""
+    return dE is not None and not np.isnan(dE) and abs(dE) <= MAX_ABS_DE_EV
 
 
 def _rotate_from_z(positions, target_dir):
@@ -221,10 +234,25 @@ def screen_reagent_on_surface(slab, material, reagent, calc,
 
     Returns dict:
         {site_type: {"dE_mean", "dE_min", "n", "values": [...]}}
-    plus "_overall" = the most favourable (min) dE across all sites tested.
+    plus "_overall" = the most favourable (min) dE across all sites tested,
+    and "_n_clash" = how many sites were discarded as unphysical (clashes).
+
+    Site relaxations run SERIALLY. A previous version thread-pooled them, but
+    a single MACE/CUDA calculator is not thread-safe -- concurrent calls corrupt
+    each other's results (wrong energies) or segfault. The `n_workers` argument
+    is accepted for backward compatibility but ignored; parallelism must come
+    from separate processes/GPUs, never threads sharing one calculator.
     """
     import surface_builder as sb
     wanted = set(site_types) if site_types else set(reagent.targets)
+
+    # Respect the explicit parameter, but also strip any stray n_workers from
+    # **kw so it is never forwarded into reaction_energy_at_site.
+    n_workers = kw.pop("n_workers", n_workers)
+    if n_workers and n_workers > 1:
+        print(f"    [energetics] note: n_workers={n_workers} ignored -- site "
+              f"relaxations run serially (a shared MLIP calculator is not "
+              f"thread-safe).", flush=True)
 
     counts = sb.classify_sites(slab, material, exposure_filter=True)
     # Fallback: if the (strict) exposure filter left no sites of interest --
@@ -234,31 +262,22 @@ def screen_reagent_on_surface(slab, material, reagent, calc,
         counts = sb.classify_sites(slab, material, exposure_filter=False)
     result = {}
     all_vals = []
-    n_workers = kw.pop("n_workers", 1)
+    n_clash = 0
     for st, info in counts.items():
         if wanted and st not in wanted:
             continue
         idxs = info["indices"][:max_sites]
         vals = []
-        if n_workers > 1 and len(idxs) > 1:
-            # Parallelise independent site relaxations with a thread pool.
-            # MACE is not fully thread-safe when multiple threads write to
-            # the same CUDA context simultaneously, so cap at a safe level.
-            workers = min(n_workers, len(idxs), 4)
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = {
-                    pool.submit(reaction_energy_at_site, slab, idx, reagent, calc, **kw): idx
-                    for idx in idxs
-                }
-                for fut in as_completed(futures):
-                    dE = fut.result()
-                    if not np.isnan(dE):
-                        vals.append(dE)
-        else:
-            for idx in idxs:
-                dE = reaction_energy_at_site(slab, idx, reagent, calc, **kw)
-                if not np.isnan(dE):
-                    vals.append(dE)
+        for idx in idxs:
+            dE = reaction_energy_at_site(slab, idx, reagent, calc, **kw)
+            if np.isnan(dE):
+                continue                       # product couldn't be built
+            if not _is_physical_dE(dE):
+                # clash / broken geometry -> quarantine, don't let it pollute
+                # the mean or masquerade as strong binding.
+                n_clash += 1
+                continue
+            vals.append(dE)
         if vals:
             result[st] = {
                 "dE_mean": float(np.mean(vals)),
@@ -269,6 +288,7 @@ def screen_reagent_on_surface(slab, material, reagent, calc,
             all_vals.extend(vals)
     result["_overall"] = float(np.min(all_vals)) if all_vals else np.nan
     result["_mean"] = float(np.mean(all_vals)) if all_vals else np.nan
+    result["_n_clash"] = n_clash
     return result
 
 
@@ -288,10 +308,12 @@ def screen_reagents(surfaces_by_material, reagents, calc, max_sites=3,
         for material, slabs in surfaces_by_material.items():
             overalls, means = [], []
             per_site_agg = {}
+            n_clash = 0
             for slab in slabs:
                 r = screen_reagent_on_surface(slab, material, reagent, calc,
                                               max_sites=max_sites,
                                               n_workers=n_workers, **kw)
+                n_clash += r.get("_n_clash", 0)
                 if not np.isnan(r["_overall"]):
                     overalls.append(r["_overall"])
                     means.append(r["_mean"])
@@ -305,13 +327,19 @@ def screen_reagents(surfaces_by_material, reagents, calc, max_sites=3,
                 "per_site": {st: round(float(np.mean(v)), 3)
                              for st, v in per_site_agg.items()},
                 "n_surfaces": len(overalls),
+                "n_clash": n_clash,
             }
             tag = f"{out[reagent.name][material]['dE_mean']:+.2f}" \
                 if means else "  n/a"
+            # surface a clash count so a run on bad geometry can't look clean
+            clash_note = f"  [{n_clash} site(s) discarded as unphysical]" \
+                if n_clash else ""
+            if not means and n_clash:
+                clash_note += " -- no usable sites (clash/bad surface)"
             print(f"  [energetics] {reagent.name:14s} on {material:5s}: "
                   f"dE_mean={tag} eV  dE_min="
                   f"{out[reagent.name][material]['dE_min']:+.2f} eV "
-                  f"({len(overalls)} surf)", flush=True)
+                  f"({len(overalls)} surf){clash_note}", flush=True)
     return out
 
 

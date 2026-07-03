@@ -331,11 +331,10 @@ with tab_submit:
 
     j_reagents = j_inhibitors + j_precursors
 
-    j_n_workers = st.slider(
-        "⚡ Parallel site workers (Phase 2 energetics)", 1, 4, 2,
-        key="submit_n_workers",
-        help="Number of concurrent local relaxations during the energetics screen. "
-             "Higher = faster Phase 2, but uses more GPU memory. 2 is a safe default.")
+    # Site relaxations run serially: a shared MACE/CUDA calculator is not
+    # thread-safe, so thread-parallelism corrupted energies / segfaulted.
+    # Kept at 1; the energetics screen ignores higher values by design.
+    j_n_workers = 1
 
     st.markdown("**When it finishes**")
     j_auto = st.checkbox(
@@ -545,11 +544,21 @@ with tab_explain:
 # --------------------------------------------------------------------------
 
 def _render_screen_table(screened: dict) -> None:
+    def _status(c):
+        if "error" in c:
+            return c["error"]
+        if c.get("unphysical"):
+            return "UNPHYSICAL (clash) — ignore"
+        if c.get("inconclusive"):
+            return f"untestable ({c.get('n_clash', '?')} placements clashed)"
+        if c.get("meets_90pct_target"):
+            return "meets 90% target ✅"
+        return "ok"
     st.dataframe(
         [{"reagent": c.get("name"), "dE_GS": c.get("dE_GS"),
           "dE_NGS": c.get("dE_NGS"), "contrast": c.get("contrast"),
-          "binds_NGS": c.get("binds_NGS"), "selective": c.get("selective"),
-          **({"error": c["error"]} if "error" in c else {})}
+          "S@10nm (%)": c.get("S_at_10nm_pct"),
+          "selective": c.get("selective"), "status": _status(c)}
          for c in screened.values()],
         width="stretch", hide_index=True)
 
@@ -562,6 +571,9 @@ def _render_agent_event(ev: dict) -> None:
                    f"`{os.path.relpath(ev['dir'], REPO)}`. "
                    + ("⚠️ Lennard-Jones placeholder — energies not physical."
                       if ev["placeholder"] else "MLIP calculator ready."))
+        if ev.get("rejected_slabs"):
+            st.warning("Phase-0 validation rejected structurally unrealistic "
+                       "slab(s): " + "; ".join(ev["rejected_slabs"]))
     elif kind == "assistant":
         st.markdown(f"**Step {step} · reasoning**")
         st.markdown(f"> {ev['text']}")
@@ -605,9 +617,11 @@ with tab_agent:
 
     default_goal = (
         "Screen the inhibitor library and identify the single best selective "
-        "inhibitor for passivating SiNx (NGS) while sparing SiO2 (GS): the "
-        "largest positive contrast (dE_GS - dE_NGS) with favourable NGS binding. "
-        "Screen strategically and report the winner with its numbers.")
+        "inhibitor for passivating SiNx (NGS) while sparing SiO2 (GS). Judge "
+        "'best' by the highest predicted selectivity at 10 nm oxide "
+        "(S_at_10nm_pct; the challenge target is >= 90%), using contrast "
+        "(dE_GS - dE_NGS) only as a screening proxy. Screen strategically and "
+        "report the winner with its numbers and whether it meets the target.")
     a_goal = st.text_area("Goal", value=default_goal, height=110, key="agent_goal")
 
     c1a, c2a, c3a = st.columns(3)
