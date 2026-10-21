@@ -13,7 +13,7 @@ from ase.data import covalent_radii
 from ase.geometry import find_mic
 from ase.io import write
 from ase.optimize import BFGS
-from .chemistry import geometries, rotation
+from .chemistry import SUBSTITUTION, geometries, rotation
 from .common import digest, file_hash, clean
 from .metrics import evaluate
 from .surfaces import representatives
@@ -22,6 +22,11 @@ DEFAULTS = {"max_sites": 2, "n_conformers": 3, "orientations": 4,
             "seed": 42, "active_radius_A": 5.0, "fmax": 0.05,
             "steps": 250, "min_site_success_fraction": 0.8,
             "energy_review_limit_eV": 15.0, "device": "cpu", "dtype": "float64"}
+
+
+# Anchor--surface heteroatom bond lengths used for initial placement (Angstrom).
+BOND_LENGTH = {("silyl_substitution", 8): 1.65, ("silyl_substitution", 7): 1.75,
+               ("acylation", 8): 1.43, ("acylation", 7): 1.47}
 
 
 def calculator(config):
@@ -92,7 +97,7 @@ def place(slab, site, geo, template, orientation, total):
     site_element = slab.numbers[site]
     zc = (slab.positions[:, 2].max() + slab.positions[:, 2].min()) / 2
     normal = np.array([0., 0., 1. if site_pos[2] >= zc else -1.])
-    if template == "silyl_substitution":
+    if template in SUBSTITUTION:
         h = [i for i, n in enumerate(slab.numbers) if n == 1 and
              slab.get_distance(site, i, mic=True) < 1.25 * (covalent_radii[n] + covalent_radii[slab.numbers[site]])]
         if not h:
@@ -100,7 +105,7 @@ def place(slab, site, geo, template, orientation, total):
         removed = min(h, key=lambda i: slab.get_distance(site, i, mic=True))
         del atoms[removed]
         site = site - int(removed < site)
-        height = 1.65 if site_element == 8 else 1.75
+        height = BOND_LENGTH[template, site_element]
     else:
         height = 2.8 + .4 * (orientation % 2)
     n_substrate = len(atoms)
@@ -127,7 +132,7 @@ def check_product(atoms, n_substrate, site, geo, template):
         raise ValueError("adsorbate_connectivity_changed")
     full_graph = graph(atoms)
     cross = {(i, j) for i, j in full_graph if i < n_substrate <= j}
-    expected = {(site, n_substrate)} if template == "silyl_substitution" else set()
+    expected = {(site, n_substrate)} if template in SUBSTITUTION else set()
     if cross != expected:
         raise ValueError("attachment_or_reaction_identity_changed")
     if template == "physisorption":
@@ -154,7 +159,7 @@ def screen(candidate, surface_report, atoms_by_id, config, calc, artifact_dir):
                 by_energies.append(by_energy)
         except Exception as exc:
             gas_failures.append(str(exc))
-    if not gas_energies or (candidate["template"] == "silyl_substitution" and not by_energies):
+    if not gas_energies or (candidate["template"] in SUBSTITUTION and not by_energies):
         return {"candidate_id": candidate["id"], "mode": "mace", "status": "failed",
                 "reason": "gas_reference_failed", "failures": gas_failures,
                 "dE_GS": None, "dE_NGS": None}

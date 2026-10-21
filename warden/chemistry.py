@@ -1,7 +1,8 @@
-"""Data-driven candidates: intact adsorption or one Si--Cl/Si--N substitution.
+"""Data-driven candidates: intact adsorption, one Si--Cl/Si--N substitution, or
+one acyl substitution (C(=O)--X + surface N-H/O-H -> amide/ester + HX).
 
 The agent supplies structures, not executable Python. Only neutral closed-shell
-molecules and the two explicitly supported mechanisms enter screening.
+molecules and the explicitly supported mechanisms enter screening.
 """
 from collections import Counter
 import re
@@ -12,6 +13,12 @@ from rdkit.Chem import AllChem, Descriptors
 from .common import digest
 
 ALLOWED_ELEMENTS = {"H", "C", "N", "O", "Si", "Cl", "F", "P", "S"}
+# Substitution templates: anchor element bonded to the surface heteroatom and
+# the leaving atoms that leave as H-X.
+SUBSTITUTION = {"silyl_substitution": ("Si", {"Cl", "N"}),
+                "acylation": ("C", {"Cl", "O", "N"})}
+TEMPLATES = {"physisorption", *SUBSTITUTION}
+H_LENGTH = {"Cl": 1.28, "N": 1.02, "O": 0.97}
 
 
 def validate_candidate(spec, evidence=None, require_evidence=False):
@@ -32,18 +39,23 @@ def validate_candidate(spec, evidence=None, require_evidence=False):
     if len(maps) != len(set(maps)):
         raise ValueError("Atom map numbers must be unique")
     template = spec.get("template")
-    if template not in {"physisorption", "silyl_substitution"}:
+    if template not in TEMPLATES:
         raise ValueError("Unsupported mechanism: needs a validated reaction template")
-    if template == "silyl_substitution":
+    if template in SUBSTITUTION:
+        element, leaving_elements = SUBSTITUTION[template]
         anchor = next((a for a in mol.GetAtoms() if a.GetAtomMapNum() == 1), None)
         leaving = next((a for a in mol.GetAtoms() if a.GetAtomMapNum() == 2), None)
-        if anchor is None or leaving is None or anchor.GetSymbol() != "Si":
-            raise ValueError("Substitution needs [Si:1] and a leaving atom mapped :2")
+        if anchor is None or leaving is None or anchor.GetSymbol() != element:
+            raise ValueError(f"Substitution needs [{element}:1] and a leaving atom mapped :2")
         bond = mol.GetBondBetweenAtoms(anchor.GetIdx(), leaving.GetIdx())
         if not bond or bond.GetBondType() != Chem.BondType.SINGLE:
             raise ValueError("Maps 1 and 2 must have a single bond")
-        if leaving.GetSymbol() not in {"Cl", "N"}:
-            raise ValueError("Only chloride/amine leaving groups are implemented")
+        if leaving.GetSymbol() not in leaving_elements:
+            raise ValueError("Leaving group not implemented for this template")
+        if template == "acylation" and not any(
+                b.GetBondType() == Chem.BondType.DOUBLE and b.GetOtherAtom(anchor).GetSymbol() == "O"
+                for b in anchor.GetBonds()):
+            raise ValueError("Acylation needs a carbonyl carbon mapped [C:1]")
         cut = Chem.RWMol(Chem.AddHs(mol))
         cut.RemoveBond(anchor.GetIdx(), leaving.GetIdx())
         if len(Chem.GetMolFrags(cut)) != 2:
@@ -128,7 +140,7 @@ def geometries(spec, n_conformers=3, seed=42):
             bond_dir = pos[leaving] - pos[anchor]
             fragment.positions = (fragment.positions - pos[anchor]) @ rotation(bond_dir, [0, 0, -1]).T
             byproduct = whole[list(lost)]
-            h_length = 1.28 if symbols[leaving] == "Cl" else 1.02
+            h_length = H_LENGTH[symbols[leaving]]
             byproduct += Atoms("H", positions=[pos[leaving] - h_length * bond_dir / np.linalg.norm(bond_dir)])
             lhs = Counter(symbols); lhs["H"] += 1
             rhs = Counter(fragment.get_chemical_symbols()) + Counter(byproduct.get_chemical_symbols())
