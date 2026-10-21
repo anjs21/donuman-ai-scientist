@@ -1,0 +1,36 @@
+{
+  "engine": {
+    "model_path": "../models/mace.model",
+    "device": "cpu",
+    "dtype": "float64",
+    "max_sites": 1,
+    "n_conformers": 2,
+    "orientations": 2,
+    "steps": 250,
+    "fmax": 0.05,
+    "active_radius_A": 5.0,
+    "min_site_success_fraction": 0.8,
+    "energy_review_limit_eV": 15.0,
+    "seed": 42
+  },
+  "objective": {
+    "max_cycles": 200,
+    "min_gpc_GS_A": 0.1,
+    "growth": {
+      "target_thickness_nm": 10.0,
+      "target_selectivity": 0.9
+    }
+  },
+  "llm": {
+    "host": "http://localhost:11434",
+    "model": "qwen2.5:7b",
+    "timeout_s": 180
+  },
+  "campaign": {
+    "max_steps": 10,
+    "max_candidates": 6,
+    "max_searches": 3,
+    "max_refinements": 2,
+    "worker_timeout_s": 1800
+  }
+}

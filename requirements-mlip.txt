@@ -1,0 +1,3 @@
+-r requirements-v2.txt
+# Optional live calculation dependency. Not installed/tested in the delivered environment.
+mace-torch>=0.3.10,<0.4

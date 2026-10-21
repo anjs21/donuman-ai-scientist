@@ -1,0 +1,14 @@
+[
+  {
+    "name": "BDMAS",
+    "smiles": "CN(C)[SiH2:1][N:2](C)C",
+    "template": "silyl_substitution",
+    "role": "precursor"
+  },
+  {
+    "name": "SiCl4",
+    "smiles": "[Cl:2][Si:1](Cl)(Cl)Cl",
+    "template": "silyl_substitution",
+    "role": "precursor"
+  }
+]

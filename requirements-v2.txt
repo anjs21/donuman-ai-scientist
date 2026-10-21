@@ -1,0 +1,9 @@
+# Tested with Python 3.12; install this before the offline demo/tests.
+numpy==2.3.5
+scipy==1.16.3
+ase==3.29.0
+rdkit==2025.9.6
+mcp==1.26.0
+jsonschema==4.26.0
+httpx==0.28.1
+pytest==9.0.2

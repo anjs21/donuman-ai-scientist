@@ -48,3 +48,37 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Local environments and generated research outputs
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.*
+!.env.example
+models/
+runs/
+surfaces_v2/
+config/bond.json
+examples/my-evidence.json
+examples/surfaces-live.json
+
+# Local environments and test output
+.venv*/
+pytest-of-root/
+__pycache__/
+.pytest_cache/
+*.pyc
+runs/
+models/
+surfaces_v2/
+.env
+.env.*
+!.env.example
+config/bond.json
+examples/my-evidence.json
+examples/surfaces-live.json
+
+# Machine-specific configuration
+config/*.local.json

@@ -1,0 +1,58 @@
+Wed Oct 21 08:34:49 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-32GB           On  |   00000000:B2:00.0 Off |                    0 |
+| N/A   27C    P0             40W /  300W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+DMATMS/molecule: step=0, fmax=2.08014
+DMATMS/molecule: step=25, fmax=0.15916
+DMATMS/molecule: step=50, fmax=0.04740
+{"name": "DMATMS/molecule", "formula": "C5H15NSi", "n_atoms": 22, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -123.3397070777872, "initial_max_force_eV_A": 2.0801419380164003, "force_difference_eV_A": 1.9012424517850235e-05, "optimizer_converged": true, "steps": 50, "final_energy_eV": -123.82069553392083, "final_max_force_eV_A": 0.04740025951624122, "energy_change_eV": -0.4809884561336304, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/DMATMS_molecule.extxyz"}
+DMATMS/byproduct: step=0, fmax=1.81665
+DMATMS/byproduct: step=25, fmax=0.10975
+{"name": "DMATMS/byproduct", "formula": "C2H7N", "n_atoms": 10, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -54.211447523845294, "initial_max_force_eV_A": 1.816646039317114, "force_difference_eV_A": 2.4164670115789377e-05, "optimizer_converged": true, "steps": 37, "final_energy_eV": -54.450591890394904, "final_max_force_eV_A": 0.044986262146742596, "energy_change_eV": -0.2391443665496098, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/DMATMS_byproduct.extxyz"}
+ETS/molecule: step=0, fmax=1.50211
+ETS/molecule: step=25, fmax=0.10103
+{"name": "ETS/molecule", "formula": "C2H5Cl3Si", "n_atoms": 11, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -70.44789378761655, "initial_max_force_eV_A": 1.5021075685243352, "force_difference_eV_A": 6.133076739356369e-06, "optimizer_converged": true, "steps": 44, "final_energy_eV": -70.81780310933922, "final_max_force_eV_A": 0.032904403457277624, "energy_change_eV": -0.3699093217226732, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/ETS_molecule.extxyz"}
+ETS/byproduct: step=0, fmax=0.56388
+{"name": "ETS/byproduct", "formula": "HCl", "n_atoms": 2, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -10.204742423381255, "initial_max_force_eV_A": 0.5638798237336059, "force_difference_eV_A": 5.994893031324722e-06, "optimizer_converged": true, "steps": 2, "final_energy_eV": -10.20866459944164, "final_max_force_eV_A": 9.692332841589193e-06, "energy_change_eV": -0.003922176060385141, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/ETS_byproduct.extxyz"}
+pyridine/molecule: step=0, fmax=3.05041
+{"name": "pyridine/molecule", "formula": "C5H5N", "n_atoms": 11, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -74.69520878068109, "initial_max_force_eV_A": 3.0504119465656943, "force_difference_eV_A": 1.6131764196458676e-05, "optimizer_converged": true, "steps": 9, "final_energy_eV": -74.89253867230514, "final_max_force_eV_A": 0.04598124685863339, "energy_change_eV": -0.1973298916240509, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/pyridine_molecule.extxyz"}
+NH3/molecule: step=0, fmax=1.74508
+{"name": "NH3/molecule", "formula": "H3N", "n_atoms": 4, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -19.819337056269006, "initial_max_force_eV_A": 1.7450798534690521, "force_difference_eV_A": 3.2179245618824126e-05, "optimizer_converged": true, "steps": 6, "final_energy_eV": -19.934374758390483, "final_max_force_eV_A": 0.03998517949961723, "energy_change_eV": -0.11503770212147657, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/NH3_molecule.extxyz"}
+BDMAS/molecule: step=0, fmax=2.48472
+BDMAS/molecule: step=25, fmax=0.26860
+BDMAS/molecule: step=50, fmax=0.07567
+{"name": "BDMAS/molecule", "formula": "C4H14N2Si", "n_atoms": 21, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -117.49910057864568, "initial_max_force_eV_A": 2.4847188790702615, "force_difference_eV_A": 6.248970577438229e-06, "optimizer_converged": true, "steps": 69, "final_energy_eV": -118.52355684214106, "final_max_force_eV_A": 0.044656911697944626, "energy_change_eV": -1.0244562634953809, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/BDMAS_molecule.extxyz"}
+BDMAS/byproduct: step=0, fmax=1.49142
+BDMAS/byproduct: step=25, fmax=0.18580
+BDMAS/byproduct: step=50, fmax=0.08073
+{"name": "BDMAS/byproduct", "formula": "C2H7N", "n_atoms": 10, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -54.02958977755299, "initial_max_force_eV_A": 1.491419892784787, "force_difference_eV_A": 5.534271490414966e-06, "optimizer_converged": true, "steps": 53, "final_energy_eV": -54.44991676031009, "final_max_force_eV_A": 0.04607552087080885, "energy_change_eV": -0.42032698275709635, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/BDMAS_byproduct.extxyz"}
+SiCl4/molecule: step=0, fmax=1.41168
+{"name": "SiCl4/molecule", "formula": "Cl4Si", "n_atoms": 5, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -39.77853596613545, "initial_max_force_eV_A": 1.4116770079765426, "force_difference_eV_A": 1.1556452739647227e-05, "optimizer_converged": true, "steps": 7, "final_energy_eV": -39.98235997815189, "final_max_force_eV_A": 0.04155653491580899, "energy_change_eV": -0.2038240120164403, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/SiCl4_molecule.extxyz"}
+SiCl4/byproduct: step=0, fmax=0.56388
+{"name": "SiCl4/byproduct", "formula": "HCl", "n_atoms": 2, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -10.204742423381253, "initial_max_force_eV_A": 0.5638798237336382, "force_difference_eV_A": 3.712052008775224e-06, "optimizer_converged": true, "steps": 2, "final_energy_eV": -10.20866459944164, "final_max_force_eV_A": 9.692332865955502e-06, "energy_change_eV": -0.003922176060386917, "fixed_cell": true, "connectivity_preserved": true, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/SiCl4_byproduct.extxyz"}
+surface/SiO2_reference: step=0, fmax=0.93191
+surface/SiO2_reference: step=25, fmax=0.07978
+{"name": "surface/SiO2_reference", "formula": "H30O118Si54", "n_atoms": 202, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -1780.3778887427038, "initial_max_force_eV_A": 0.9319057139386201, "force_difference_eV_A": 1.1830526791545282e-06, "optimizer_converged": true, "steps": 35, "final_energy_eV": -1781.395788381095, "final_max_force_eV_A": 0.045335706856310734, "energy_change_eV": -1.0178996383910999, "fixed_cell": true, "connectivity_preserved": null, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/surface_SiO2_reference.extxyz", "input_admitted": true}
+surface/SiNx_reference: step=0, fmax=2.05656
+surface/SiNx_reference: step=25, fmax=0.09372
+surface/SiNx_reference: step=50, fmax=0.09819
+{"name": "surface/SiNx_reference", "formula": "H59N99O8Si72", "n_atoms": 238, "status": "pass", "fmax_threshold_eV_A": 0.05, "initial_energy_eV": -1959.8478865434581, "initial_max_force_eV_A": 2.0565605653564325, "force_difference_eV_A": 9.533764932623257e-06, "optimizer_converged": true, "steps": 65, "final_energy_eV": -1962.3295246964299, "final_max_force_eV_A": 0.04489769525862263, "energy_change_eV": -2.4816381529717546, "fixed_cell": true, "connectivity_preserved": null, "geometry": "/ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/surface_SiNx_reference.extxyz", "input_admitted": false}
+FINAL: needs_review | report: /ocean/projects/mat250016p/dvarghes/on_the_fly/donuman-ai-scientist/runs/relaxation_49543552/relaxation_report.json
+No candidate ranking or experimental success is claimed.

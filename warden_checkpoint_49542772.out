@@ -1,0 +1,52 @@
+Wed Oct 21 07:54:54 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-32GB           On  |   00000000:8A:00.0 Off |                    0 |
+| N/A   28C    P0             41W /  300W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+{
+  "purpose": "checkpoint_execution_diagnostic",
+  "scientific_success": false,
+  "torch": "2.9.1+cu126",
+  "cuda_build": "12.6",
+  "mace": "0.3.16"
+}
+GPU: Tesla V100-SXM2-32GB
+Compiled architectures: ['sm_50', 'sm_60', 'sm_70', 'sm_75', 'sm_80', 'sm_86', 'sm_90']
+GPU tensor calculation: PASS
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+Checkpoint loaded: PASS
+{"name": "surface/SiO2_reference", "formula": "H30O118Si54", "n_atoms": 202, "material": "SiO2", "admitted": true, "admission_reasons": [], "status": "pass", "energy_eV": -1780.3778887427038, "max_force_eV_A": 0.9319057139386208}
+{"name": "surface/SiNx_reference", "formula": "H59N99O8Si72", "n_atoms": 238, "material": "SiNx", "admitted": false, "admission_reasons": ["structural: density_gcc"], "status": "pass", "energy_eV": -1959.84788654346, "max_force_eV_A": 2.0565605653564325}
+{"name": "DMATMS/molecule", "formula": "C5H15NSi", "n_atoms": 22, "role": "inhibitor", "template": "silyl_substitution", "status": "pass", "energy_eV": -123.3397070777872, "max_force_eV_A": 2.0801419380163977}
+{"name": "DMATMS/fragment", "formula": "C3H9Si", "n_atoms": 13, "role": "inhibitor", "template": "silyl_substitution", "status": "pass", "energy_eV": -70.56989291516004, "max_force_eV_A": 1.0784540094856963}
+{"name": "DMATMS/byproduct", "formula": "C2H7N", "n_atoms": 10, "role": "inhibitor", "template": "silyl_substitution", "status": "pass", "energy_eV": -54.2114475238453, "max_force_eV_A": 1.8166460393171147}
+{"name": "ETS/molecule", "formula": "C2H5Cl3Si", "n_atoms": 11, "role": "inhibitor", "template": "silyl_substitution", "status": "pass", "energy_eV": -70.44789378761655, "max_force_eV_A": 1.502107568524335}
+{"name": "ETS/fragment", "formula": "C2H5Cl2Si", "n_atoms": 10, "role": "inhibitor", "template": "silyl_substitution", "status": "pass", "energy_eV": -60.84760362599635, "max_force_eV_A": 1.7927619094316203}
+{"name": "ETS/byproduct", "formula": "HCl", "n_atoms": 2, "role": "inhibitor", "template": "silyl_substitution", "status": "pass", "energy_eV": -10.204742423381255, "max_force_eV_A": 0.5638798237336059}
+{"name": "pyridine/molecule", "formula": "C5H5N", "n_atoms": 11, "role": "inhibitor", "template": "physisorption", "status": "pass", "energy_eV": -74.6952087806811, "max_force_eV_A": 3.0504119465656956}
+{"name": "NH3/molecule", "formula": "H3N", "n_atoms": 4, "role": "inhibitor", "template": "physisorption", "status": "pass", "energy_eV": -19.819337056269006, "max_force_eV_A": 1.7450798534690504}
+{"name": "BDMAS/molecule", "formula": "C4H14N2Si", "n_atoms": 21, "role": "precursor", "template": "silyl_substitution", "status": "pass", "energy_eV": -117.49910057864571, "max_force_eV_A": 2.48471887907026}
+{"name": "BDMAS/fragment", "formula": "C2H8NSi", "n_atoms": 12, "role": "precursor", "template": "silyl_substitution", "status": "pass", "energy_eV": -64.76764199089935, "max_force_eV_A": 1.90837298643157}
+{"name": "BDMAS/byproduct", "formula": "C2H7N", "n_atoms": 10, "role": "precursor", "template": "silyl_substitution", "status": "pass", "energy_eV": -54.02958977755299, "max_force_eV_A": 1.491419892784787}
+{"name": "SiCl4/molecule", "formula": "Cl4Si", "n_atoms": 5, "role": "precursor", "template": "silyl_substitution", "status": "pass", "energy_eV": -39.77853596613545, "max_force_eV_A": 1.411677007976543}
+{"name": "SiCl4/fragment", "formula": "Cl3Si", "n_atoms": 4, "role": "precursor", "template": "silyl_substitution", "status": "pass", "energy_eV": -30.24165491310711, "max_force_eV_A": 0.6946887963622266}
+{"name": "SiCl4/byproduct", "formula": "HCl", "n_atoms": 2, "role": "precursor", "template": "silyl_substitution", "status": "pass", "energy_eV": -10.204742423381253, "max_force_eV_A": 0.5638798237336382}
+Report: runs/checkpoint_49542772/checkpoint_report.json
+Failed cases: 0 / 16
+CHECKPOINT EXECUTION TEST: PASS
+Surface admission and chemical accuracy remain separate checks.

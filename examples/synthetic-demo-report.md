@@ -1,0 +1,22 @@
+# WARDEN v2 campaign report
+
+**Screening only. No experimental AS-ALD success is claimed.**
+Synthetic demo and unverified historical results are excluded from the real ranking.
+
+| Candidate | Mode | Status | GS eV | NGS eV | Proxy pass |
+|---|---|---|---:|---:|---|
+| demo_propyltrichlorosilane | synthetic_demo | complete | -0.05 | -1.4 | True |
+| demo_methyltrichlorosilane | synthetic_demo | complete | -2.0 | -2.3 | False |
+
+## Trace
+
+- 1: **plan** — {'action': {'action': 'propose', 'candidates': [{'evidence': [{'id': 'ev_39b0f5088aed1f2f', 'quote': 'Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS.'}], 'falsification': 'The synthetic GS energy indicates growth poisoning.', 'hypothesis': 'Synthetic demonstration only; this is not a claim about this molecule.', 'name': 'demo_methyltrichlorosilane', 'role': 'inhibitor', 'smiles': 'C[Si:1]([Cl:2])(Cl)Cl', 'template': 'silyl_substitution'}], 'reason': 'Exercise registration of a new molecule'}, 'step': 1}
+- 2: **critique** — {'approve': True, 'reason': 'Fixture proposal is explicitly synthetic.'}
+- 3: **synthetic_result** — {'candidate_id': 'cand_e482e2a0c53a9ef1', 'dE_GS': -2.0, 'dE_NGS': -2.3, 'fidelity': 0, 'id': 'c0c7fa2a1952b9571fa121a5b1f13369dccb8ce442fd3f464c21af5f8bebd37b', 'metrics': {'gpc_GS_A': 0.002967147787961588, 'gpc_NGS_A': 0.0008952346006040113, 'growth_params': {'dE_half_eV': -0.5, 'delay_max_cycles': 25.0, 'gpc_intrinsic_A': 1.2, 'target_selectivity': 0.9, 'target_thickness_nm': 10.0, 'width_eV': 0.25}, 'limitation': 'Uncalibrated energy-to-growth surrogate; not proof of AS-ALD performance.', 'max_thickness_at_target_selectivity_nm': 0.0, 'minimum_growth_rate_met': False, 'model_pass': False, 'n_delay_GS': 24.938184421084134, 'n_delay_NGS': 24.981349279154085, 'n_target': 33727.33764215062, 'scientific_success': False, 'selectivity_at_target': None, 'status': 'screening_proxy_only', 'target_reached': False, 'theta_GS': 0.9975273768433653, 'theta_NGS': 0.9992539711661633, 'thk_NGS_at_target_nm': None}, 'mode': 'synthetic_demo', 'role': 'inhibitor', 'status': 'complete', 'warning': 'Fabricated numbers for software tests only.'}
+- 4: **plan** — {'action': {'action': 'propose', 'candidates': [{'evidence': [{'id': 'ev_39b0f5088aed1f2f', 'quote': 'Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS.'}], 'falsification': 'The synthetic GS energy indicates growth poisoning.', 'hypothesis': 'Synthetic demonstration only; this is not a claim about this molecule.', 'name': 'demo_propyltrichlorosilane', 'role': 'inhibitor', 'smiles': 'CCC[Si:1]([Cl:2])(Cl)Cl', 'template': 'silyl_substitution'}], 'reason': 'Respond to GS poisoning'}, 'step': 2}
+- 5: **critique** — {'approve': True, 'reason': 'Fixture proposal is explicitly synthetic.'}
+- 6: **synthetic_result** — {'candidate_id': 'cand_ac9ebe58805327da', 'dE_GS': -0.05, 'dE_NGS': -1.4, 'fidelity': 0, 'id': '3ff068a3840bfcc45d34613353f964e4a2455f6a39fe4c303851f1c9cbd24419', 'metrics': {'gpc_GS_A': 1.0297787221194146, 'gpc_NGS_A': 0.031916392292239144, 'growth_params': {'dE_half_eV': -0.5, 'delay_max_cycles': 25.0, 'gpc_intrinsic_A': 1.2, 'target_selectivity': 0.9, 'target_thickness_nm': 10.0, 'width_eV': 0.25}, 'limitation': 'Uncalibrated energy-to-growth surrogate; not proof of AS-ALD performance.', 'max_thickness_at_target_selectivity_nm': 20.230386421527037, 'minimum_growth_rate_met': True, 'model_pass': True, 'n_delay_GS': 3.546276622512194, 'n_delay_NGS': 24.335075160578352, 'n_target': 100.65451730764441, 'scientific_success': False, 'selectivity_at_target': 0.9524416215018968, 'status': 'screening_proxy_only', 'target_reached': True, 'theta_GS': 0.14185106490048777, 'theta_NGS': 0.973403006423134, 'thk_NGS_at_target_nm': 0.24358412550906103}, 'mode': 'synthetic_demo', 'role': 'inhibitor', 'status': 'complete', 'warning': 'Fabricated numbers for software tests only.'}
+- 7: **plan** — {'action': {'action': 'finish', 'reason': 'Two synthetic feedback rounds completed; no scientific conclusion.'}, 'step': 3}
+- 8: **verified_stop** — {'reason': 'Two synthetic feedback rounds completed; no scientific conclusion.', 'scientific_success': False, 'verdict': 'See deterministic screening report; model prose cannot certify success.'}
+
+All calculation attempts, geometry paths, configuration hashes, source evidence, and critic decisions are available in report.json and the SQLite database.

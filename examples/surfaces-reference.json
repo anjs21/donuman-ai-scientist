@@ -1,0 +1,20 @@
+{
+  "surfaces": [
+    {
+      "id": "SiO2_reference",
+      "material": "SiO2",
+      "path": "../zenodo_structures/POSCAR_SiO2_1",
+      "format": "vasp",
+      "stage": "passivated_slab",
+      "provenance": "Reference structure bundled in original anjs21/donuman-ai-scientist repository; admission must be verified."
+    },
+    {
+      "id": "SiNx_reference",
+      "material": "SiNx",
+      "path": "../zenodo_structures/POSCAR_SiNx_1",
+      "format": "vasp",
+      "stage": "passivated_slab",
+      "provenance": "Reference structure bundled in original anjs21/donuman-ai-scientist repository; admission must be verified."
+    }
+  ]
+}
