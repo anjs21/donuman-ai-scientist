@@ -44,6 +44,7 @@ import surface_builder as sb
 
 def parse_args():
     p = argparse.ArgumentParser(description="AS-ALD amorphous surface builder")
+    p.add_argument("--model-path", default=None, help="Local checkpoint; required for reproducible v2 runs")
     p.add_argument("--material", choices=["SiO2", "SiNx", "both"], default="both")
     p.add_argument("--mode", choices=["test", "fast", "full"], default="full",
                    help="MD length: test=ultra-short, fast=short, full=Kim et al.")
@@ -86,7 +87,10 @@ def parse_args():
     return p.parse_args()
 
 
-def make_calculator(dtype, device):
+def make_calculator(dtype, device, model_path=None):
+    if model_path:
+        from warden.engine import calculator
+        return calculator({"model_path": model_path, "device": device or "cpu", "dtype": dtype})
     try:
         from mace.calculators import mace_mp
         if device is None:
@@ -210,7 +214,7 @@ def main():
      "fast": sb.use_fast_protocol,
      "full": sb.use_full_protocol}[args.mode]()
 
-    calc = make_calculator(args.dtype, args.device)
+    calc = make_calculator(args.dtype, args.device, args.model_path)
 
     materials = ["SiO2", "SiNx"] if args.material == "both" else [args.material]
 

@@ -1,3 +1,7 @@
+# V2 compatibility stop: the old entrypoint bypasses the new admission/reporting gates.
+if __name__ == "__main__":
+    raise SystemExit("Legacy entrypoint disabled in this bundle. Run: python -m warden --help; see RUN_ORDER.md")
+
 #!/usr/bin/env python3
 """
 run_pipeline.py

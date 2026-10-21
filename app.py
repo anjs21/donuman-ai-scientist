@@ -19,6 +19,10 @@ MACE for the 8 GB of VRAM.
 
 from __future__ import annotations
 
+# V2 compatibility stop: the old entrypoint bypasses the new admission/reporting gates.
+if __name__ == "__main__":
+    raise SystemExit("Legacy entrypoint disabled in this bundle. Run: python -m warden --help; see RUN_ORDER.md")
+
 import json
 import os
 import subprocess

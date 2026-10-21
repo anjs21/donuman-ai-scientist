@@ -156,7 +156,7 @@ def slab_density_gcc(atoms, exclude_vacuum=True, heavy_only=True):
     thickness = (z.max() - z.min()) if exclude_vacuum else np.linalg.norm(cell[2])
     thickness = max(thickness, 1e-6)
 
-    volume_A3 = Lx * Ly * thickness
+    volume_A3 = np.linalg.norm(np.cross(cell[0], cell[1])) * thickness
     mass_amu = sum(_MASS.get(s, 0.0) for s in symbols)
     # 1 amu/A^3 = 1.66054 g/cm^3
     return float(mass_amu / volume_A3 * 1.66054)
@@ -182,7 +182,7 @@ def radial_distribution(atoms, sym_a, sym_b, r_max=6.0, n_bins=120):
     for i in ia:
         d = pos[ib] - pos[i]
         frac = d @ inv
-        frac -= np.round(frac)             # minimum image
+        frac[:, atoms.pbc] -= np.round(frac[:, atoms.pbc])  # only periodic axes
         d = frac @ cell
         dist = np.linalg.norm(d, axis=1)
         dist = dist[(dist > 1e-3) & (dist < r_max)]

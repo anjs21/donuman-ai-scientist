@@ -25,7 +25,7 @@ Addresses the challenge brief's two concerns:
       few representatives for downstream reactivity calcs.
 
 Requires: ase, numpy (scipy/sklearn optional). Supply an MLIP calculator via
-get_calculator(); an LJ placeholder runs the geometry pipeline without an MLIP.
+get_calculator(); missing MLIP support stops the scientific pipeline.
 """
 
 import os
@@ -247,8 +247,7 @@ def apply_sinx_composition(atoms, rng):
 # ===========================================================================
 
 def get_calculator(dtype="float32"):
-    """Load MACE-MP-0 (medium-omat-0) on GPU if available, else CPU; LJ fallback
-    for geometry-only testing when MACE is missing."""
+    """Load MACE-OMAT on GPU if available, else CPU; fail if unavailable."""
     try:
         from mace.calculators import mace_mp
         import torch
@@ -261,10 +260,8 @@ def get_calculator(dtype="float32"):
                   "production. ***", flush=True)
         return calc
     except Exception as e:
-        print(f"[WARN] MACE unavailable ({e}); using LJ placeholder "
-              f"(geometry testing ONLY, not physically accurate).")
-        from ase.calculators.lj import LennardJones
-        return LennardJones(sigma=2.5, epsilon=0.05, rc=6.0)
+        print(f"[ERROR] MACE unavailable: {e}")
+        raise RuntimeError("MACE unavailable; refusing nonphysical fallback. Use python -m warden demo for offline checks.") from e
 
 
 # ===========================================================================
@@ -347,7 +344,8 @@ def melt_quench_bulk(atoms, material, calc, seed=0, supercell=(3, 3, 2),
     """
     p = PROTOCOL[material]
     quench_ps = quench_ps_override if quench_ps_override is not None else p["quench_ps"]
-    eff_p = dict(p, quench_ps=quench_ps)
+    eff_p = dict(p, quench_ps=quench_ps, cache_schema="v2-no-placeholder",
+                 calculator=str(type(calc)), calculator_parameters=str(calc.parameters))
     cooling_rate = p["melt_K"] / quench_ps
 
     if use_cache:
@@ -361,6 +359,7 @@ def melt_quench_bulk(atoms, material, calc, seed=0, supercell=(3, 3, 2),
     atoms.calc = calc
     print(f"    melt-quench bulk ({len(atoms)} atoms, quench={quench_ps}ps "
           f"=> {cooling_rate:.0f} K/ps)...", flush=True)
+    np.random.seed(seed)  # seed Langevin and velocity initialization for this serial build
     MaxwellBoltzmannDistribution(atoms, temperature_K=p["premelt_K"])
     _md_stage(atoms, p["premelt_K"], p["premelt_ps"], timestep_fs=1.0, label="premelt")
     _md_stage(atoms, p["melt_K"], p["melt_ps"], label="melt")
@@ -542,6 +541,8 @@ def _relax(atoms, label="relax", fmax=0.05, steps=300, report_every=25,
         conv = f"stopped (fmax={fmax_final})"
     print(f"      [{label}] done: fmax={fmax_final:.3f} eV/A, {conv} "
           f"({_time.time()-t0:.0f}s)", flush=True)
+    if aborted or not np.isfinite(fmax_final) or fmax_final > fmax:
+        raise RuntimeError(f"{label}: relaxation failed ({conv})")
     return atoms
 
 
@@ -631,7 +632,10 @@ def _is_surface_site(atoms, idx, depth_cutoff=3.5):
                 continue
             if direction < 0 and zj >= zi - r_i:
                 continue
-            dxy = np.hypot(pos[j, 0] - xi, pos[j, 1] - yi)
+            from ase.geometry import find_mic
+            delta = pos[j] - pos[idx]
+            delta[2] = 0.0
+            dxy = float(find_mic(delta, atoms.cell, pbc=[True, True, False])[1])
             if dxy < (r_i + r_j):
                 return False
         return True
@@ -814,22 +818,25 @@ def clumping_ratio(atoms, site_indices):
     R>1 dispersed, ~1 random, <1 clumped."""
     if len(site_indices) < 2:
         return None
-    pos = atoms.get_positions()[site_indices][:, :2]
-    cell = atoms.get_cell()
-    Lx, Ly = cell[0, 0], cell[1, 1]
-    n = len(pos)
-    nn = []
-    for i in range(n):
-        d = pos - pos[i]
-        d[:, 0] -= Lx * np.round(d[:, 0] / Lx)
-        d[:, 1] -= Ly * np.round(d[:, 1] / Ly)
-        dist = np.hypot(d[:, 0], d[:, 1])
-        dist[i] = np.inf
-        nn.append(dist.min())
-    area = abs(Lx * Ly)
-    density = n / area
-    expected_nn = 0.5 / np.sqrt(density)
-    return float(np.mean(nn) / expected_nn)
+    from ase.geometry import find_mic
+    positions = atoms.positions
+    middle = (positions[:, 2].min() + positions[:, 2].max()) / 2
+    ratios, sizes = [], []
+    # The two physical faces are separate point processes.
+    for top in (True, False):
+        face = [i for i in site_indices if (positions[i, 2] >= middle) == top]
+        if len(face) < 2:
+            continue
+        points = positions[face].copy()
+        points[:, 2] = 0
+        delta = points[:, None, :] - points[None, :, :]
+        _, lengths = find_mic(delta.reshape(-1, 3), atoms.cell, pbc=[True, True, False])
+        distance = lengths.reshape(len(face), len(face))
+        np.fill_diagonal(distance, np.inf)
+        area = np.linalg.norm(np.cross(atoms.cell[0], atoms.cell[1]))
+        ratios.append(float(distance.min(axis=1).mean() / (0.5 / np.sqrt(len(face) / area))))
+        sizes.append(len(face))
+    return float(np.average(ratios, weights=sizes)) if ratios else None
 
 
 def slab_passes_quality_gate(counts, area, material, n_std=2.5, min_clump_ratio=0.75,

@@ -1,0 +1,340 @@
+{
+  "scientific_success": false,
+  "status": "screening_report_only",
+  "ranked_real_screening_results": [],
+  "results": [
+    {
+      "candidate_id": "cand_ac9ebe58805327da",
+      "dE_GS": -0.05,
+      "dE_NGS": -1.4,
+      "fidelity": 0,
+      "id": "3ff068a3840bfcc45d34613353f964e4a2455f6a39fe4c303851f1c9cbd24419",
+      "metrics": {
+        "gpc_GS_A": 1.0297787221194146,
+        "gpc_NGS_A": 0.031916392292239144,
+        "growth_params": {
+          "dE_half_eV": -0.5,
+          "delay_max_cycles": 25.0,
+          "gpc_intrinsic_A": 1.2,
+          "target_selectivity": 0.9,
+          "target_thickness_nm": 10.0,
+          "width_eV": 0.25
+        },
+        "limitation": "Uncalibrated energy-to-growth surrogate; not proof of AS-ALD performance.",
+        "max_thickness_at_target_selectivity_nm": 20.230386421527037,
+        "minimum_growth_rate_met": true,
+        "model_pass": true,
+        "n_delay_GS": 3.546276622512194,
+        "n_delay_NGS": 24.335075160578352,
+        "n_target": 100.65451730764441,
+        "scientific_success": false,
+        "selectivity_at_target": 0.9524416215018968,
+        "status": "screening_proxy_only",
+        "target_reached": true,
+        "theta_GS": 0.14185106490048777,
+        "theta_NGS": 0.973403006423134,
+        "thk_NGS_at_target_nm": 0.24358412550906103
+      },
+      "mode": "synthetic_demo",
+      "role": "inhibitor",
+      "status": "complete",
+      "warning": "Fabricated numbers for software tests only."
+    },
+    {
+      "candidate_id": "cand_e482e2a0c53a9ef1",
+      "dE_GS": -2.0,
+      "dE_NGS": -2.3,
+      "fidelity": 0,
+      "id": "c0c7fa2a1952b9571fa121a5b1f13369dccb8ce442fd3f464c21af5f8bebd37b",
+      "metrics": {
+        "gpc_GS_A": 0.002967147787961588,
+        "gpc_NGS_A": 0.0008952346006040113,
+        "growth_params": {
+          "dE_half_eV": -0.5,
+          "delay_max_cycles": 25.0,
+          "gpc_intrinsic_A": 1.2,
+          "target_selectivity": 0.9,
+          "target_thickness_nm": 10.0,
+          "width_eV": 0.25
+        },
+        "limitation": "Uncalibrated energy-to-growth surrogate; not proof of AS-ALD performance.",
+        "max_thickness_at_target_selectivity_nm": 0.0,
+        "minimum_growth_rate_met": false,
+        "model_pass": false,
+        "n_delay_GS": 24.938184421084134,
+        "n_delay_NGS": 24.981349279154085,
+        "n_target": 33727.33764215062,
+        "scientific_success": false,
+        "selectivity_at_target": null,
+        "status": "screening_proxy_only",
+        "target_reached": false,
+        "theta_GS": 0.9975273768433653,
+        "theta_NGS": 0.9992539711661633,
+        "thk_NGS_at_target_nm": null
+      },
+      "mode": "synthetic_demo",
+      "role": "inhibitor",
+      "status": "complete",
+      "warning": "Fabricated numbers for software tests only."
+    }
+  ],
+  "candidates": [
+    {
+      "canonical_smiles": "CCC[Si](Cl)(Cl)Cl",
+      "evidence": [
+        {
+          "id": "ev_39b0f5088aed1f2f",
+          "quote": "Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS."
+        }
+      ],
+      "falsification": "The synthetic GS energy indicates growth poisoning.",
+      "hypothesis": "Synthetic demonstration only; this is not a claim about this molecule.",
+      "id": "cand_ac9ebe58805327da",
+      "molecular_weight": 177.534,
+      "name": "demo_propyltrichlorosilane",
+      "role": "inhibitor",
+      "smiles": "CCC[Si:1](Cl)(Cl)[Cl:2]",
+      "template": "silyl_substitution"
+    },
+    {
+      "canonical_smiles": "C[Si](Cl)(Cl)Cl",
+      "evidence": [
+        {
+          "id": "ev_39b0f5088aed1f2f",
+          "quote": "Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS."
+        }
+      ],
+      "falsification": "The synthetic GS energy indicates growth poisoning.",
+      "hypothesis": "Synthetic demonstration only; this is not a claim about this molecule.",
+      "id": "cand_e482e2a0c53a9ef1",
+      "molecular_weight": 149.48000000000002,
+      "name": "demo_methyltrichlorosilane",
+      "role": "inhibitor",
+      "smiles": "C[Si:1](Cl)(Cl)[Cl:2]",
+      "template": "silyl_substitution"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev_39b0f5088aed1f2f",
+      "kind": "synthetic_demo",
+      "source": "offline test fixture",
+      "text": "Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS."
+    }
+  ],
+  "historical": [],
+  "diagnoses": [
+    {
+      "candidate_id": "cand_ac9ebe58805327da",
+      "issue": "promising_proxy_requires_independent_validation",
+      "dE_GS": -0.05,
+      "dE_NGS": -1.4
+    },
+    {
+      "candidate_id": "cand_e482e2a0c53a9ef1",
+      "issue": "growth_surface_poisoning_in_surrogate",
+      "dE_GS": -2.0,
+      "dE_NGS": -2.3
+    }
+  ],
+  "campaign": {
+    "config_hash": "b16384385a4401eb1145c974a0820af3e51dafcb80ca04730b89f000c7a02fb9",
+    "last_error": null,
+    "max_candidates": 2,
+    "max_refinements": 2,
+    "max_searches": 4,
+    "max_steps": 4,
+    "mode": "synthetic_demo",
+    "pending": null,
+    "refinements": {},
+    "searches": 0,
+    "status": "finished",
+    "step": 3,
+    "submitted": [
+      "cand_e482e2a0c53a9ef1",
+      "cand_ac9ebe58805327da"
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "time": "2026-10-21T10:55:44.620553+00:00",
+      "kind": "plan",
+      "body": {
+        "action": {
+          "action": "propose",
+          "candidates": [
+            {
+              "evidence": [
+                {
+                  "id": "ev_39b0f5088aed1f2f",
+                  "quote": "Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS."
+                }
+              ],
+              "falsification": "The synthetic GS energy indicates growth poisoning.",
+              "hypothesis": "Synthetic demonstration only; this is not a claim about this molecule.",
+              "name": "demo_methyltrichlorosilane",
+              "role": "inhibitor",
+              "smiles": "C[Si:1]([Cl:2])(Cl)Cl",
+              "template": "silyl_substitution"
+            }
+          ],
+          "reason": "Exercise registration of a new molecule"
+        },
+        "step": 1
+      }
+    },
+    {
+      "seq": 2,
+      "time": "2026-10-21T10:55:44.623145+00:00",
+      "kind": "critique",
+      "body": {
+        "approve": true,
+        "reason": "Fixture proposal is explicitly synthetic."
+      }
+    },
+    {
+      "seq": 3,
+      "time": "2026-10-21T10:55:44.625452+00:00",
+      "kind": "synthetic_result",
+      "body": {
+        "candidate_id": "cand_e482e2a0c53a9ef1",
+        "dE_GS": -2.0,
+        "dE_NGS": -2.3,
+        "fidelity": 0,
+        "id": "c0c7fa2a1952b9571fa121a5b1f13369dccb8ce442fd3f464c21af5f8bebd37b",
+        "metrics": {
+          "gpc_GS_A": 0.002967147787961588,
+          "gpc_NGS_A": 0.0008952346006040113,
+          "growth_params": {
+            "dE_half_eV": -0.5,
+            "delay_max_cycles": 25.0,
+            "gpc_intrinsic_A": 1.2,
+            "target_selectivity": 0.9,
+            "target_thickness_nm": 10.0,
+            "width_eV": 0.25
+          },
+          "limitation": "Uncalibrated energy-to-growth surrogate; not proof of AS-ALD performance.",
+          "max_thickness_at_target_selectivity_nm": 0.0,
+          "minimum_growth_rate_met": false,
+          "model_pass": false,
+          "n_delay_GS": 24.938184421084134,
+          "n_delay_NGS": 24.981349279154085,
+          "n_target": 33727.33764215062,
+          "scientific_success": false,
+          "selectivity_at_target": null,
+          "status": "screening_proxy_only",
+          "target_reached": false,
+          "theta_GS": 0.9975273768433653,
+          "theta_NGS": 0.9992539711661633,
+          "thk_NGS_at_target_nm": null
+        },
+        "mode": "synthetic_demo",
+        "role": "inhibitor",
+        "status": "complete",
+        "warning": "Fabricated numbers for software tests only."
+      }
+    },
+    {
+      "seq": 4,
+      "time": "2026-10-21T10:55:44.628670+00:00",
+      "kind": "plan",
+      "body": {
+        "action": {
+          "action": "propose",
+          "candidates": [
+            {
+              "evidence": [
+                {
+                  "id": "ev_39b0f5088aed1f2f",
+                  "quote": "Synthetic fixture: compare an analog that poisons GS with an analog that preserves GS."
+                }
+              ],
+              "falsification": "The synthetic GS energy indicates growth poisoning.",
+              "hypothesis": "Synthetic demonstration only; this is not a claim about this molecule.",
+              "name": "demo_propyltrichlorosilane",
+              "role": "inhibitor",
+              "smiles": "CCC[Si:1]([Cl:2])(Cl)Cl",
+              "template": "silyl_substitution"
+            }
+          ],
+          "reason": "Respond to GS poisoning"
+        },
+        "step": 2
+      }
+    },
+    {
+      "seq": 5,
+      "time": "2026-10-21T10:55:44.629797+00:00",
+      "kind": "critique",
+      "body": {
+        "approve": true,
+        "reason": "Fixture proposal is explicitly synthetic."
+      }
+    },
+    {
+      "seq": 6,
+      "time": "2026-10-21T10:55:44.631572+00:00",
+      "kind": "synthetic_result",
+      "body": {
+        "candidate_id": "cand_ac9ebe58805327da",
+        "dE_GS": -0.05,
+        "dE_NGS": -1.4,
+        "fidelity": 0,
+        "id": "3ff068a3840bfcc45d34613353f964e4a2455f6a39fe4c303851f1c9cbd24419",
+        "metrics": {
+          "gpc_GS_A": 1.0297787221194146,
+          "gpc_NGS_A": 0.031916392292239144,
+          "growth_params": {
+            "dE_half_eV": -0.5,
+            "delay_max_cycles": 25.0,
+            "gpc_intrinsic_A": 1.2,
+            "target_selectivity": 0.9,
+            "target_thickness_nm": 10.0,
+            "width_eV": 0.25
+          },
+          "limitation": "Uncalibrated energy-to-growth surrogate; not proof of AS-ALD performance.",
+          "max_thickness_at_target_selectivity_nm": 20.230386421527037,
+          "minimum_growth_rate_met": true,
+          "model_pass": true,
+          "n_delay_GS": 3.546276622512194,
+          "n_delay_NGS": 24.335075160578352,
+          "n_target": 100.65451730764441,
+          "scientific_success": false,
+          "selectivity_at_target": 0.9524416215018968,
+          "status": "screening_proxy_only",
+          "target_reached": true,
+          "theta_GS": 0.14185106490048777,
+          "theta_NGS": 0.973403006423134,
+          "thk_NGS_at_target_nm": 0.24358412550906103
+        },
+        "mode": "synthetic_demo",
+        "role": "inhibitor",
+        "status": "complete",
+        "warning": "Fabricated numbers for software tests only."
+      }
+    },
+    {
+      "seq": 7,
+      "time": "2026-10-21T10:55:44.634216+00:00",
+      "kind": "plan",
+      "body": {
+        "action": {
+          "action": "finish",
+          "reason": "Two synthetic feedback rounds completed; no scientific conclusion."
+        },
+        "step": 3
+      }
+    },
+    {
+      "seq": 8,
+      "time": "2026-10-21T10:55:44.634955+00:00",
+      "kind": "verified_stop",
+      "body": {
+        "reason": "Two synthetic feedback rounds completed; no scientific conclusion.",
+        "scientific_success": false,
+        "verdict": "See deterministic screening report; model prose cannot certify success."
+      }
+    }
+  ]
+}

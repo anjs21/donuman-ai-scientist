@@ -59,9 +59,9 @@ class GrowthParams:
 
 def blocked_fraction(dE_eV, p: GrowthParams):
     """Fraction of sites blocked by the inhibitor given its adsorption energy."""
-    if dE_eV is None or np.isnan(dE_eV):
-        return 0.0
-    return float(1.0 / (1.0 + np.exp((dE_eV - p.dE_half_eV) / p.width_eV)))
+    if dE_eV is None or not np.isfinite(dE_eV):
+        return float("nan")
+    return float(1.0 / (1.0 + np.exp(np.clip((dE_eV - p.dE_half_eV) / p.width_eV, -700, 700))))
 
 
 def thickness_curve(dE_eV, p: GrowthParams, n_cycles):
@@ -82,11 +82,13 @@ def selectivity_curve(dE_GS, dE_NGS, p: GrowthParams, n_cycles=200):
     Returns a dict with the per-cycle arrays and the headline numbers the
     challenge asks for.
     """
+    if p.width_eV <= 0 or p.gpc_intrinsic_A <= 0 or p.target_thickness_nm <= 0 or n_cycles < 1:
+        raise ValueError("Positive width, GPC, thickness, and cycle budget required")
     theta_gs, gpc_gs, delay_gs, thk_gs = thickness_curve(dE_GS, p, n_cycles)
     theta_ngs, gpc_ngs, delay_ngs, thk_ngs = thickness_curve(dE_NGS, p, n_cycles)
 
     denom = thk_gs + thk_ngs
-    S = np.divide(thk_gs - thk_ngs, denom, out=np.ones_like(denom), where=denom > 0)
+    S = np.divide(thk_gs - thk_ngs, denom, out=np.full_like(denom, np.nan), where=denom > 0)
 
     # cycle at which the GS reaches the target oxide thickness
     target_A = p.target_thickness_nm * 10.0
@@ -94,9 +96,10 @@ def selectivity_curve(dE_GS, dE_NGS, p: GrowthParams, n_cycles=200):
         n_target = target_A / gpc_gs + delay_gs
     else:
         n_target = np.inf
-    n_target_int = int(np.clip(np.ceil(n_target), 0, n_cycles))
-    S_at_target = float(S[n_target_int]) if np.isfinite(n_target) else float("nan")
-    thk_ngs_at_target = float(thk_ngs[n_target_int]) if np.isfinite(n_target) else float("nan")
+    reached = bool(np.isfinite(n_target) and n_target <= n_cycles)
+    ngs_at_exact_target = gpc_ngs * max(0.0, n_target - delay_ngs) if reached else float("nan")
+    S_at_target = float((target_A - ngs_at_exact_target) / (target_A + ngs_at_exact_target)) if reached else float("nan")
+    thk_ngs_at_target = float(ngs_at_exact_target)
 
     # max GS thickness while selectivity still >= target
     ok = S >= p.target_selectivity
@@ -121,7 +124,8 @@ def selectivity_curve(dE_GS, dE_NGS, p: GrowthParams, n_cycles=200):
         "selectivity_at_target": S_at_target,
         "thk_NGS_at_target_nm": thk_ngs_at_target / 10.0 if np.isfinite(thk_ngs_at_target) else float("nan"),
         "max_thickness_at_target_selectivity_nm": max_thk_at_target_S_nm,
-        "meets_target": bool(np.isfinite(S_at_target)
+        "target_reached": reached,
+        "meets_target": bool(reached and np.isfinite(S_at_target)
                              and S_at_target >= p.target_selectivity),
     }
 

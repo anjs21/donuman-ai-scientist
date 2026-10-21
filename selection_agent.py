@@ -37,7 +37,7 @@ def _clean(x):
     if x is None:
         return None
     try:
-        if math.isnan(float(x)):
+        if not math.isfinite(float(x)):
             return None
     except (TypeError, ValueError):
         return None
@@ -109,7 +109,9 @@ def _score_inhibitor(reagent, dE_GS, dE_NGS, strain_dominated, cfg):
 
     if dE_NGS is None:
         return -1e9, False, ["no NGS data"], terms
-    contrast = (dE_GS if dE_GS is not None else 0.0) - dE_NGS
+    if dE_GS is None:
+        return -1e9, False, ["no GS data: insufficient evidence"], terms
+    contrast = dE_GS - dE_NGS
 
     # hard gates
     accepted = True
@@ -118,6 +120,7 @@ def _score_inhibitor(reagent, dE_GS, dE_NGS, strain_dominated, cfg):
         reasons.append(f"does not bind NGS (dE={dE_NGS:+.2f} > "
                        f"{cfg['bind_threshold_eV']:+.2f} eV)")
     if dE_GS is not None and dE_GS < cfg["spare_threshold_eV"]:
+        accepted = False
         # binds the growth surface too strongly -> would suppress wanted growth
         reasons.append(f"also caps GS (dE={dE_GS:+.2f} < "
                        f"{cfg['spare_threshold_eV']:+.2f} eV)")
