@@ -270,10 +270,16 @@ def decide_command(args):
                 belief.add(o)
         methods = args.methods
         out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
+        # Spending persists across runs, so repeated invocations cannot exceed a total budget.
+        spent_before = (store.get('state', 'decide') or {}).get('spent', 0.)
+        budget = args.budget
+        if args.total_budget is not None:
+            budget = min(budget, max(args.total_budget - spent_before, 0.))
+            print(f"decide budget: {budget:.1f} this run ({spent_before:.1f} of {args.total_budget:.1f} spent before)")
         if args.dry_run:
             agent = dc.Agent(belief, methods, library, cfg)
-            action, shortlist = agent.choose(args.budget)
-            result = {"pick": None, "pcs": belief.pcs(), "spent": 0., "budget": args.budget,
+            action, shortlist = agent.choose(budget)
+            result = {"pick": None, "pcs": belief.pcs(), "spent": 0., "budget": budget,
                       "stop": "dry_run", "scores": belief.scores(), "trace": [],
                       "methods": belief.methods.report(), "failures": belief.failures.report()}
             result["next"] = [f"{a.kind} {candidates.get(a.candidate, {}).get('name', a.extra.get('name', ''))} "
@@ -284,6 +290,7 @@ def decide_command(args):
 
             def log(record):
                 store.event('decision', record)
+                store.put('state', 'decide', {'spent': spent_before + record['spent']})
                 if record.get('added_id'):
                     # Save now: a killed job must not orphan this molecule's observations.
                     store.put('candidate', record['added_id'], belief.candidates[record['added_id']])
@@ -291,11 +298,13 @@ def decide_command(args):
                     store.put('observation', digest(record['result'] | {'step': record['step']}), record['result'])
                 print(record['step'], record['action']['kind'], record['action'].get('site'),
                       record['action'].get('method'), '->', (record.get('result') or {}).get('status', record.get('added')))
-            result = dc.run(belief, executor, args.budget, library, methods, cfg, log)
-            result["budget"] = args.budget
+            result = dc.run(belief, executor, budget, library, methods, cfg, log)
+            result["budget"] = budget
             result["stop"] = next((t["stop"] for t in reversed(result["trace"]) if "stop" in t), "max_steps")
             for cid, spec in belief.candidates.items():
                 store.put('candidate', cid, spec)
+        result["total_spent"] = spent_before + result["spent"]
+        result["total_budget"] = args.total_budget
         result["names"] = {c: s.get('name', c) for c, s in belief.candidates.items()}
         result["contention"] = belief.contention() if len(belief.candidates) > 1 else {}
         if belief.candidates:
@@ -307,6 +316,12 @@ def decide_command(args):
         result["note"] = ("Decisions use a hierarchical Gaussian belief with stated priors; "
                           "method biases are learned only from results paired with the reference method.")
         write_json(out / 'decisions.json', result)
+        # What the LLM campaign planner sees of this agent's ranking (campaign.context).
+        store.put('decide_summary', 'latest', {
+            "scores_decades": {result["names"].get(c, c): round(v, 2) for c, v in result["scores"].items()},
+            "pick": result["names"].get(result["pick"], result["pick"]), "pcs": result["pcs"],
+            "stop": result["stop"], "next": result.get("next", []),
+            "meaning": "dose-window feasibility margin at the best temperature; negative = infeasible by that many decades"})
         (out / 'decisions.md').write_text(dc.markdown(result))
         print('Decision report:', out / 'decisions.md')
     finally:
@@ -368,10 +383,17 @@ def main(argv=None):
     dd.add_argument('--candidates'); dd.add_argument('--library')
     dd.add_argument('--methods', nargs='+', default=['xtb'], choices=['xtb', 'mace', 'dft'])
     dd.add_argument('--budget', type=float, default=10.); dd.add_argument('--out', default='runs/decide')
+    dd.add_argument('--total-budget', type=float,
+                    help='Cap on cost spent by decide in this database over all runs (tracked in the db)')
     dd.add_argument('--dry-run', action='store_true', help='Only report what the agent would compute next')
     bm = commands.add_parser('benchmark', help='Equal-budget policy comparison on synthetic worlds')
     bm.add_argument('--worlds', type=int, default=30); bm.add_argument('--budget', type=float, default=60.)
     bm.add_argument('--methods', nargs='+', default=['xtb', 'dft']); bm.add_argument('--out', default='runs/benchmark')
+    bm.add_argument('--library-size', type=int, default=0,
+                    help='Extra molecules per world the agent may add (baselines cannot)')
+    bm.add_argument('--policies', nargs='+', default=None,
+                    help='Subset of warden_voi, warden_voi_no_sharing, exhaustive_cheap, screen_then_verify, '
+                         'uncertainty_sampling, random')
     args = p.parse_args(argv)
     try:
         if args.command == 'demo':
@@ -438,7 +460,8 @@ def main(argv=None):
             decide_command(args); return 0
         if args.command == 'benchmark':
             from .benchmark import benchmark
-            r = benchmark(args.worlds, args.budget, methods=tuple(args.methods))
+            r = benchmark(args.worlds, args.budget, methods=tuple(args.methods), policies=args.policies,
+                          world={'library_size': args.library_size})
             write_json(Path(args.out) / 'benchmark.json', r)
             for row in r['summary']:
                 print(f"{row['policy']:22s} P(correct) {row['p_correct']:.2f}  regret {row['mean_regret_decades']:.2f}  "

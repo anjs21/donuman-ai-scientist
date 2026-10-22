@@ -36,7 +36,8 @@ DEFAULTS = {
     "capture_NGS": 0.99, "capture_GS": 0.01,
     "draws": 128, "kg_points": 5, "target_pcs": 0.95, "min_value_per_cost": 1e-4,
     "new_molecule_cost": 2.0, "relevance_weight": 0.5, "success_prior": [3., 1.], "retry_decay": 0.7, "seed": 0,
-    "orientations": 4}  # distinct starting orientations per leaf (kinetics "orientations")
+    "orientations": 4,  # distinct starting orientations per leaf (kinetics "orientations")
+    "orientation_sd_eV": 0.15}  # spread of the excess barrier a poor starting orientation adds
 
 
 def window_width(ea_gs, ea_ngs, cfg, clip=True):
@@ -455,6 +456,7 @@ class Agent:
             spec = b.candidates[cid]
             binding = b.binding(cid)
             for m in ("SiO2", "SiNx"):
+                measured = b._measurements(cid, b.leaves(cid, m))
                 for i, (label, pathway) in enumerate(b.leaves(cid, m)):
                     mean, var = b.leaf_marginal(cid, m, i)
                     site = b.site(label)
@@ -466,23 +468,41 @@ class Agent:
                         bmean, bvar = b.methods.bias(method, m, spec["template"])
                         noise2 = b.methods.noise(method) ** 2
                         sig2 = noise2 + bvar
-                        ys = bmean + mean + np.sqrt(var + sig2) * q             # raw method output
-                        w = b.widths(cid, (m, i, ys, method)).mean(-1)
-                        kg = float(np.mean(np.maximum(w, others)) - max(scores[cid], others))
+                        if (i, method) in measured:
+                            # Another orientation with a method that already has this leaf: by
+                            # symmetry it beats the n tried ones with probability 1/(n+1), and
+                            # then by about the orientation spread; otherwise nothing changes.
+                            tried = len({o.orientation for o in b.obs if o.status == "valid"
+                                         and (o.candidate, o.site, o.pathway, o.method) == key})
+                            p_new = 1 / (tried + 1)
+                            ys = measured[(i, method)][0] - cfg["orientation_sd_eV"] * np.abs(q)
+                        else:
+                            p_new = 1.
+                            ys = bmean + mean + np.sqrt(var + sig2) * q             # raw method output
+                        after = b.samples(cid, (m, i, ys, method))
+                        w = window_width(after["SiO2"], after["SiNx"], cfg, clip=False).mean(-1)
+                        kg = p_new * float(np.mean(np.maximum(w, others)) - max(scores[cid], others))
                         # Decision-relevant uncertainty: candidate in contention x leaf sets the
-                        # window x fraction of the leaf's uncertainty this method removes.
-                        # Only uncertainty above this method's own bias floor is removable by it.
-                        reducible = max(var - bvar, 0.)
-                        relevance = (contention[cid] * binding[m][i] * math.sqrt(reducible)
-                                     * reducible / (reducible + noise2) * sens * cfg["relevance_weight"])
+                        # window x expected drop in the leaf's posterior sd from this result.
+                        # The drop is computed under the same update as real data, so the
+                        # method's bias floor and the fastest-orientation rule (a new
+                        # orientation only informs by being lower) are both respected.
+                        sd_after = math.sqrt(p_new * float(after["leaf_" + m][:, :, i].var(-1).mean())
+                                             + (1 - p_new) * var)
+                        removable = max(math.sqrt(var) - sd_after, 0.)
+                        relevance = (contention[cid] * binding[m][i] * removable * sens * cfg["relevance_weight"])
                         value = max(kg, 0.) + relevance
                         acts.append(Action("observe", cid, label, pathway, method, orientation,
                                            max(value, 0.), b.failures.p(method, spec["template"], pathway,
                                                                          site["site_type"], key),
                                            cfg["methods"][method]["cost"],
-                                           extra={"leaf_sd_eV": math.sqrt(var), "method_sd_eV": math.sqrt(sig2),
+                                           extra={"leaf_sd_eV": math.sqrt(var), "leaf_sd_after_eV": sd_after,
+                                                  "method_sd_eV": math.sqrt(sig2),
                                                   "knowledge_gradient": max(kg, 0.), "relevance": relevance,
                                                   "p_contention": contention[cid], "p_binding_leaf": float(binding[m][i])}))
+        # Adding a molecule is only useful with a calculation on it, so the action
+        # includes its first one and is costed (and affordable) as both.
+        first = min((cfg["methods"][m]["cost"] for m in self.methods_available), default=0.)
         for spec in self.library:
             w = b.new_molecule_widths(spec)
             b.candidates["_probe"] = spec
@@ -491,11 +511,20 @@ class Agent:
             finally:
                 del b.candidates["_probe"]
             acts.append(Action("add_molecule", value=float(np.mean(np.maximum(w, best)) - best),
-                               cost=cfg["new_molecule_cost"],
+                               cost=cfg["new_molecule_cost"] + first,
                                extra={"name": spec["name"], "id": spec["id"], "template": spec["template"],
                                       "prior_mean_eV": prior, "prior_source": "own" if spec.get("prior_Ea_eV")
                                       else "template results"}))
         return acts
+
+    def first_calculation(self, cid, budget_left):
+        """Best affordable observation on one candidate (the one just added)."""
+        acts = [a for a in self.actions() if a.kind == "observe" and a.candidate == cid and a.cost <= budget_left]
+        if not acts:
+            return None
+        best = max(acts, key=lambda a: a.score())
+        best.why = f"first calculation on {self.belief.candidates[cid].get('name', cid)}"
+        return best
 
     def explain(self, a, previous):
         if a.kind == "add_molecule":
@@ -574,9 +603,16 @@ def run(belief, executor, budget, library=(), methods=("xtb",), cfg=None, log=No
             spec = next(s for s in agent.library if s["id"] == action.extra["id"])
             agent.library.remove(spec)
             belief.add_candidate(spec)
-            spent += action.cost
+            spent += agent.cfg["new_molecule_cost"]   # the first calculation is charged as it runs
             record["added"] = spec["name"]
             record["added_id"] = spec["id"]
+            first = agent.first_calculation(spec["id"], budget - spent)
+            if first is not None:
+                o = executor.execute(first, belief)
+                spent += o.cost
+                belief.add(o)
+                record["first_action"] = clean(vars(first))
+                record["result"] = clean(vars(o))
         else:
             o = executor.execute(action, belief)
             spent += o.cost
@@ -713,7 +749,9 @@ def markdown(result):
              "**Screening only. Scores are dose-window feasibility margins (decades, best T); "
              "negative means infeasible by that much.**", "",
              f"Pick: **{n(result['pick'])}** | P(correct selection) {result['pcs']:.2f} | "
-             f"spent {result['spent']:.1f} / {result['budget']:.1f} cost units | stop: {result['stop']}", "",
+             f"spent {result['spent']:.1f} / {result['budget']:.1f} cost units | stop: {result['stop']}"
+             + (f" | all runs: {result['total_spent']:.1f}" + (f" / {result['total_budget']:.1f}" if result.get("total_budget") else "")
+                if result.get("total_spent") is not None else ""), "",
              "## Candidate scores (posterior mean margin)", "", "| Candidate | Margin (decades) | P(top two) |", "|---|---:|---:|"]
     for c, v in sorted(result["scores"].items(), key=lambda x: -x[1]):
         lines.append(f"| {n(c)} | {v:.2f} | {result['contention'].get(c, 0):.2f} |")
@@ -722,7 +760,9 @@ def markdown(result):
         if "action" not in t:
             continue
         a = t["action"]
-        what = (f"add {t.get('added')}" if a["kind"] == "add_molecule"
+        first = t.get("first_action")
+        what = (f"add {t.get('added')}" + (f", then {first['site']} / {first['pathway']} / {first['method']}" if first else "")
+                if a["kind"] == "add_molecule"
                 else f"{n(a['candidate'])} @ {a['site']} / {a['pathway']} / {a['method']} (orient {a['orientation']})")
         res = t.get("result") or {}
         outcome = (f"Ea {res['Ea_eV']:.2f} eV" + (" (barrierless, bound)" if res.get("reason") == "barrierless" else "")

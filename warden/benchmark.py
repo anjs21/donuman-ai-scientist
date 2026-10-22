@@ -3,7 +3,9 @@
 Each world hides true barriers (candidate x site x pathway), per-method
 systematic biases that differ by surface, noise, and failure rates. A path
 started from a poor orientation reaches a higher barrier; the leaf's true
-barrier is its best orientation. Every policy uses the same Belief inference
+barrier is its best orientation. Molecules of one reaction template share a
+class mean (template_sd_eV), and an optional library holds molecules the
+agent may add. Every policy uses the same Belief inference
 and the same final pick rule; only the choice of which calculation to buy
 differs. This measures decision quality
 (correct pick, regret) and efficiency (cost spent) -- it is a test of the
@@ -11,13 +13,14 @@ agent's strategy, not of any chemistry.
 """
 import numpy as np
 from .common import clean
-from .decide import DEFAULTS, Action, Agent, Belief, Observation, window_width
+from .decide import DEFAULTS, Action, Belief, Observation, run, window_width
 from .kinetics import PATHWAYS
 
 WORLD = {"n_candidates": 6, "sites": {"SiO2": 3, "SiNx": 4},
          "bias_sd_eV": {"xtb": 0.20, "mace": 0.30, "dft": 0.03},
          "fail": {"xtb": (0.15, 0.35), "mace": (0.10, 0.30), "dft": (0.10, 0.20)},
-         "unrunnable_fraction": 0.0, "orientations": 4, "orientation_sd_eV": 0.15}
+         "unrunnable_fraction": 0.0, "orientations": 4, "orientation_sd_eV": 0.15,
+         "template_sd_eV": 0.3, "library_size": 0}
 
 
 def make_world(seed, cfg=None, world=None):
@@ -30,11 +33,16 @@ def make_world(seed, cfg=None, world=None):
             sites.append({"material": m, "label": f"{m}:{i}", "site_type": types[i % len(types)],
                           "population": int(rng.integers(1, 10))})
     candidates, truth = {}, {}
-    for c in range(world["n_candidates"]):
-        cid = f"c{c}"
+    # Total spread per molecule stays prior_sd_eV; template_sd_eV of it is shared by the class.
+    st = min(world["template_sd_eV"], cfg["prior_sd_eV"])
+    sc = np.sqrt(cfg["prior_sd_eV"] ** 2 - st ** 2)
+    class_mean = {(t, m): rng.normal(cfg["prior_mean_eV"][m], st) for t in PATHWAYS for m in ("SiO2", "SiNx")}
+    n0 = world["n_candidates"]
+    for c in range(n0 + world["library_size"]):
+        cid = f"c{c}" if c < n0 else f"L{c - n0}"
         template = "acylation" if c % 3 else "silyl_substitution"
         candidates[cid] = {"id": cid, "name": cid, "template": template}
-        mu = {m: rng.normal(cfg["prior_mean_eV"][m], cfg["prior_sd_eV"]) for m in ("SiO2", "SiNx")}
+        mu = {m: rng.normal(class_mean[(template, m)], sc) for m in ("SiO2", "SiNx")}
         for s in sites:
             base = mu[s["material"]] + rng.normal(0, cfg["site_sd_eV"])
             for p in PATHWAYS[template]:
@@ -49,6 +57,8 @@ def make_world(seed, cfg=None, world=None):
         e[rng.integers(world["orientations"])] = 0.
         excess[key] = e
     return {"sites": sites, "candidates": candidates, "truth": truth, "bias": bias, "excess": excess,
+            "initial": [c for c in candidates if c.startswith("c")],
+            "library": [candidates[c] for c in candidates if c.startswith("L")],
             "fail": world["fail"], "seed": seed}
 
 
@@ -148,25 +158,24 @@ def policy_random(belief, budget_left, state, cfg):
     return Action("observe", *key, meth, cost=cfg["methods"][meth]["cost"])
 
 
+# Agent variants: full agent, and the agent without learning across molecules of a class.
+AGENTS = {"warden_voi": {}, "warden_voi_no_sharing": {"template_sd_eV": 1e-6}}
+
 BASELINES = {"exhaustive_cheap": policy_exhaustive_cheap, "screen_then_verify": policy_screen_then_verify,
              "uncertainty_sampling": policy_uncertainty, "random": policy_random}
 
 
 def run_policy(name, world, budget, cfg, methods, tolerance=0.1):
-    cfg = {**DEFAULTS, **cfg}
-    belief = Belief(world["sites"], world["candidates"], cfg)
+    cfg = {**DEFAULTS, **cfg, **AGENTS.get(name, {})}
+    belief = Belief(world["sites"], {c: world["candidates"][c] for c in world["initial"]}, cfg)
     executor = SyntheticExecutor(world, cfg)
     spent, n_fail, n_actions = 0., 0, 0
-    if name == "warden_voi":
-        agent = Agent(belief, methods, (), cfg)
-        while True:
-            if belief.obs and belief.pcs() >= cfg["target_pcs"]:
-                break
-            a, _ = agent.choose(budget - spent)
-            if a is None:
-                break
-            o = executor.execute(a, belief); belief.add(o)
-            spent += o.cost; n_fail += o.status != "valid"; n_actions += 1
+    if name in AGENTS:
+        # The agent's own loop, including adding library molecules with their first calculation.
+        r = run(belief, executor, budget, [dict(s) for s in world["library"]], methods, cfg)
+        steps = [t for t in r["trace"] if "action" in t]
+        spent, n_actions = r["spent"], len(steps)
+        n_fail = sum((t.get("result") or {}).get("status", "valid") != "valid" for t in steps)
     else:
         state = {"methods": list(methods)}
         while True:
@@ -181,7 +190,7 @@ def run_policy(name, world, budget, cfg, methods, tolerance=0.1):
     scores = belief.scores()
     pick = max(scores, key=scores.get)
     truth = {c: true_width(world, c, cfg) for c in world["candidates"]}
-    best = max(truth.values())
+    best = max(truth.values())   # over the library too: missing a better new molecule is regret
     # Margins saturate at the full practical range, so near-ties count as correct.
     return {"policy": name, "pick": pick, "correct": truth[pick] >= best - tolerance,
             "regret_decades": best - truth[pick], "spent": spent, "actions": n_actions,

@@ -149,6 +149,47 @@ def test_contrast_uses_the_slowest_nitride_site_and_the_dose_window():
     assert "kinetic_contrast" in codes(site("o", "SiO2", 1.2), site("n", "SiNx", 0.6))
 
 
+def test_site_barrier_comes_from_the_most_accurate_method_not_a_cross_method_minimum():
+    def rec(method, ea):
+        return {"candidate_id": "p", "name": "p", "template": "acylation", "method": method,
+                "sites": [{"label": "gas:OH", "material": "SiO2", "site_type": "OH",
+                           "attempts": [{"status": "valid", "Ea_eV": ea}]}]}
+    records, _ = gather([rec("mace", 0.1), rec("xtb", 0.6)])
+    (row,) = records[0]["sites"]
+    assert row["method"] == "xtb" and row["Ea_eV"] == 0.6 and len(row["attempts"]) == 2
+
+
+def test_agent_observation_site_type_is_looked_up_not_parsed():
+    k = {"candidate_id": "p", "name": "p", "template": "acylation", "method": "xtb",
+         "sites": [{"label": "slab1:12:top", "material": "SiNx", "site_type": "NH2", "attempts": []}]}
+    obs = [{"candidate": "p", "site": "slab1:12:top", "pathway": "addition", "method": "xtb",
+            "status": "valid", "Ea_eV": 0.4},
+           {"candidate": "p", "site": "gas:NH_bridge", "pathway": "addition", "method": "xtb",
+            "status": "valid", "Ea_eV": 0.5}]
+    cands = {"p": {"name": "p", "smiles": "C[C:1](=O)[Cl:2]", "template": "acylation"}}
+    records, _ = gather([k], obs, cands)
+    types = {s["label"]: s["site_type"] for s in records[0]["sites"]}
+    assert types == {"slab1:12:top": "NH2", "gas:NH_bridge": "NH_bridge"}
+
+
+def test_decide_total_budget_caps_this_run(tmp_path):
+    db = tmp_path / "c.sqlite"
+    store = Store(db)
+    store.put("kinetics", "k1", json.loads(FIXTURE.read_text()))
+    spec = validate_candidate({"name": "acetyl chloride", "smiles": "C[C:1](=O)[Cl:2]", "template": "acylation"})
+    store.put("candidate", spec["id"], spec)
+    store.put("state", "decide", {"spent": 8.})
+    store.close()
+    r = subprocess.run([sys.executable, "-m", "warden", "decide", "--db", str(db), "--sites", "gas", "--budget", "5",
+                        "--total-budget", "10", "--dry-run", "--out", str(tmp_path / "d")],
+                       cwd=ROOT, capture_output=True, text=True, timeout=300)
+    assert r.returncode == 0, r.stderr
+    result = json.loads((tmp_path / "d/decisions.json").read_text())
+    assert result["budget"] == 2. and result["total_spent"] == 8.
+    summary = Store(db).get("decide_summary", "latest")
+    assert summary["pick"] == "acetyl chloride" and "scores_decades" in summary
+
+
 # --- import -----------------------------------------------------------------------
 
 def proposals():

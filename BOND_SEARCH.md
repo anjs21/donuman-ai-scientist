@@ -150,3 +150,5 @@ Only submit supported reaction templates to the existing chemistry validator.
 Preserve surface admission gates; do not turn the historical unadmitted cluster
 diagnostics into ranking evidence. `warden decide` selects calculations from
 existing candidates and a supplied library; it does not itself search literature.
+Each `decide` run stores its ranking (`decide_summary`), which the LLM
+`campaign` planner and its reviewer receive as `agent_ranking`.

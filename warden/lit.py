@@ -150,12 +150,19 @@ def questions(record, found):
     return out
 
 
+def method_rank(method):
+    """Lower is more accurate (decide's barrier noise); unknown methods last."""
+    from .decide import DEFAULTS
+    return DEFAULTS["methods"].get(method, {}).get("sigma_barrier_eV", float("inf"))
+
+
 def gather(kinetics_records, observations=(), candidates=None, rules=None):
     """One record per candidate, combining stored kinetics screens with the decision
     agent's own observations; site barriers re-derived with kinetics.select_best."""
     from . import kinetics as kin
     candidates = candidates or {}
     material_of = {f"gas:{t}": m for m, sites in kin.GAS_SITES.items() for t in sites}
+    type_of = {f"gas:{t}": t for sites in kin.GAS_SITES.values() for t in sites}
     out, skipped = {}, 0
     for k in kinetics_records:
         rec = out.setdefault(k["candidate_id"], {"candidate_id": k["candidate_id"], "name": k.get("name"),
@@ -164,10 +171,13 @@ def gather(kinetics_records, observations=(), candidates=None, rules=None):
         rec["methods"].add(k.get("method"))
         for site in k["sites"]:
             material_of.setdefault(site["label"], site["material"])
+            if site.get("site_type"):
+                type_of.setdefault(site["label"], site["site_type"])
             row = rec["sites"].setdefault(site["label"], {"label": site["label"], "material": site["material"],
                                                           "site_type": site.get("site_type"), "attempts": []})
-            row["attempts"] += site.get("attempts") or ([{"status": "failed", "reason": site.get("reason")}]
-                                                        if site.get("reason") else [])
+            attempts = site.get("attempts") or ([{"status": "failed", "reason": site.get("reason")}]
+                                                if site.get("reason") else [])
+            row["attempts"] += [{**a, "method": k.get("method")} for a in attempts]
     for o in observations:
         material = material_of.get(o["site"])
         spec = candidates.get(o["candidate"])
@@ -178,20 +188,28 @@ def gather(kinetics_records, observations=(), candidates=None, rules=None):
                                               "smiles": spec.get("smiles"), "template": spec.get("template"),
                                               "methods": set(), "sites": {}})
         rec["methods"].add(o.get("method"))
+        # Slab labels end in the face, not the site type: look the type up, never parse it.
         row = rec["sites"].setdefault(o["site"], {"label": o["site"], "material": material,
-                                                  "site_type": o["site"].split(":")[-1], "attempts": []})
+                                                  "site_type": type_of.get(o["site"]), "attempts": []})
         if o.get("status") == "valid":
             status = "barrierless" if o.get("reason") == "barrierless" else "valid"
             row["attempts"].append({"status": status, "Ea_eV": o.get("Ea_eV"), "dE_rxn_eV": o.get("dE_rxn_eV"),
-                                    "stepwise_indication": None, "pathway": o.get("pathway")})
+                                    "stepwise_indication": None, "pathway": o.get("pathway"), "method": o.get("method")})
         else:
-            row["attempts"].append({"status": o.get("status"), "reason": o.get("reason"), "pathway": o.get("pathway")})
+            row["attempts"].append({"status": o.get("status"), "reason": o.get("reason"), "pathway": o.get("pathway"),
+                                    "method": o.get("method")})
     records = []
     for rec in out.values():
         sites = []
         for row in rec["sites"].values():
             attempts = [{"dE_rxn_eV": None, "stepwise_indication": None, **a} for a in row["attempts"]]
-            sites.append({**row, "attempts": attempts, **kin.site_fields(kin.select_best(attempts, row["material"], rules))})
+            # Barriers from different methods are not interchangeable: the site value comes
+            # from the most accurate method that produced a usable one, never a cross-method minimum.
+            usable = {a.get("method") for a in attempts if kin.effective_barrier(a, row["material"], rules) is not None}
+            method = min(usable, key=method_rank) if usable else None
+            chosen = [a for a in attempts if a.get("method") == method] if method else attempts
+            sites.append({**row, "attempts": attempts, "method": method,
+                          **kin.site_fields(kin.select_best(chosen, row["material"], rules))})
         methods = sorted(m for m in rec["methods"] if m)
         records.append({**{k: v for k, v in rec.items() if k not in ("sites", "methods")},
                         "method": "+".join(methods) or None, "sites": sites})

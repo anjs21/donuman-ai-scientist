@@ -265,6 +265,45 @@ def test_added_molecule_is_identified_when_logged():
     assert seen == [("n_silyl", True)]
 
 
+class Fixed:
+    """Executor that returns one barrier for every calculation."""
+    def __init__(self, ea=0.5):
+        self.ea, self.calls = ea, []
+
+    def execute(self, a, belief):
+        self.calls.append(a)
+        return dc.Observation(a.candidate, a.site, a.pathway, a.method, "valid", self.ea, -0.5,
+                              cost=dc.DEFAULTS["methods"][a.method]["cost"], orientation=a.orientation)
+
+
+def test_adding_a_molecule_runs_its_first_calculation():
+    b = separated_belief(gs=(0.05, 0.0), ngs=(0.5, 0.6))
+    ex = Fixed()
+    budget = dc.DEFAULTS["new_molecule_cost"] + dc.DEFAULTS["methods"]["xtb"]["cost"]
+    r = dc.run(b, ex, budget, [NEW_SILYL], methods=("xtb",), cfg=dc.DEFAULTS)
+    step = next(t for t in r["trace"] if "added" in t)
+    assert step["action"]["cost"] == pytest.approx(budget)          # costed as molecule + calculation
+    assert step["result"]["candidate"] == "n_silyl" and ex.calls[0].candidate == "n_silyl"
+    assert r["spent"] == pytest.approx(budget)
+    # Every add action is costed as the molecule plus its first calculation.
+    small = dc.Agent(b, ["xtb"], [NEW_SILYL]).actions()
+    assert all(a.cost == pytest.approx(budget) for a in small if a.kind == "add_molecule")
+
+
+def test_more_tried_orientations_make_another_one_worth_less():
+    def kg(n):
+        b = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+        for c in CANDS:
+            for site, ea in (("g0", 0.9), ("g1", 0.95), ("n1", 0.6)):
+                b.add(dc.Observation(c, site, "addition", "xtb", "valid", ea, -0.5, orientation=0))
+        for o in range(n):
+            b.add(dc.Observation("a", "n0", "addition", "xtb", "valid", 0.7, -0.5, orientation=o))
+        acts = dc.Agent(b, ["xtb"], (), dc.DEFAULTS).actions()
+        a = next(a for a in acts if (a.candidate, a.site, a.pathway) == ("a", "n0", "addition"))
+        return a.extra["knowledge_gradient"] + a.extra["relevance"]
+    assert kg(1) > kg(3) > 0
+
+
 def test_synthetic_world_truth_is_hidden_and_consistent():
     w = make_world(3)
     assert len(w["candidates"]) == 6 and w["truth"]
@@ -290,3 +329,13 @@ def test_stress_test_reports_repassivation_sensitivity():
     assert set(r) == {"cap_loss_per_cycle", "incomplete_repassivation_theta_max",
                       "slower_repassivation_NGS_shift_eV", "oxide_inhibition_GS_shift_eV",
                       "oxide_cap_persistence_k_deg_GS"}
+
+
+def test_benchmark_world_classes_and_library():
+    w = make_world(2, world={"library_size": 4})
+    assert len(w["initial"]) == 6 and [s["id"] for s in w["library"]] == ["L0", "L1", "L2", "L3"]
+    assert set(w["candidates"]) == set(w["initial"]) | {"L0", "L1", "L2", "L3"}
+    r = benchmark(n_worlds=2, budget=12., seed=3, policies=["warden_voi", "warden_voi_no_sharing"],
+                  world={"library_size": 3})
+    assert {x["policy"] for x in r["runs"]} == {"warden_voi", "warden_voi_no_sharing"}
+    assert all(x["spent"] <= 12. for x in r["runs"])

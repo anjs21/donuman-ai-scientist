@@ -24,6 +24,7 @@ def context(store, state, tools):
             "diagnoses": diagnose(rows),
             "results": [{k: r.get(k) for k in ("candidate_id", "mode", "status", "dE_GS", "dE_NGS", "metrics", "reason")} for r in rows],
             "kinetics": kinetic_context(store),
+            "agent_ranking": store.get("decide_summary", "latest"),
             "evidence": evidence, "literature_tools": tools,
             "last_error": state.get("last_error")}
 
@@ -147,6 +148,18 @@ def run(store, planner, runner, config, literature=None, mode="live"):
                     store.put("state", "campaign", state)
                 runner([candidate_id], action["_fidelity"])
             state["last_error"] = None
+        except subprocess.CalledProcessError as exc:
+            # A crashed worker is not a chemical result. Retry the stored action once;
+            # after that, record the molecules as unscreened instead of losing them.
+            action["_worker_failures"] = action.get("_worker_failures", 0) + 1
+            store.event("worker_failed", {"action": action, "returncode": exc.returncode})
+            if action["_worker_failures"] < 2:
+                state["pending"] = action
+                store.put("state", "campaign", state)
+                continue
+            ids = action.get("_ids") or [action.get("candidate_id")]
+            state.setdefault("unscreened", []).extend(i for i in ids if i not in state.get("unscreened", []))
+            state["last_error"] = f"worker failed twice for {ids}; marked unscreened (not a chemical rejection)"
         except subprocess.TimeoutExpired:
             state["status"] = "paused"
             store.event("worker_timeout", {"pending": action, "note": "Resume command reuses completed jobs."})

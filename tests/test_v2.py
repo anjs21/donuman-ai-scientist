@@ -263,3 +263,46 @@ def test_campaign_context_shows_the_most_recent_evidence(tmp_path):
     shown = [e["id"] for e in context(store, {}, [])["evidence"]]
     assert shown == ids[4:] + [ids[0]]
     store.close()
+
+
+def test_crashed_worker_is_retried_once_then_marked_unscreened(tmp_path):
+    s = Store(tmp_path/'db'); s.evidence(DEMO_QUOTE, 'fixture', 'synthetic_demo')
+    calls = []
+    def crash(ids, fidelity):
+        calls.append(ids); raise subprocess.CalledProcessError(1, 'worker')
+    state = run(s, FixturePlanner(), crash, {'campaign': {'max_steps': 1, 'max_candidates': 1}}, mode='synthetic_demo')
+    assert len(calls) == 2 and calls[0] == calls[1]           # one retry of the same molecules
+    assert state['unscreened'] == calls[0] and state['submitted'] == calls[0]
+    assert 'not a chemical rejection' in state['last_error']
+    s.close()
+
+
+def test_critic_sees_computed_results_and_agent_ranking(tmp_path):
+    seen = {}
+    class Capture(FixturePlanner):
+        def critique(self, action, ctx):
+            seen.update(ctx); return {'approve': False, 'reason': 'captured'}
+    s = Store(tmp_path/'db'); s.evidence(DEMO_QUOTE, 'fixture', 'synthetic_demo')
+    s.put('decide_summary', 'latest', {'pick': 'x', 'scores_decades': {'x': -2.0}})
+    run(s, Capture(), lambda *a: pytest.fail('should not compute'), {'campaign': {'max_steps': 1}}, mode='synthetic_demo')
+    assert {'results', 'kinetics', 'agent_ranking'} <= set(seen)
+    assert seen['agent_ranking']['pick'] == 'x'
+    s.close()
+
+
+def test_bond_adapter_refuses_mcp_2(monkeypatch):
+    import asyncio, importlib.metadata
+    from warden import literature
+    monkeypatch.setattr(importlib.metadata, 'version', lambda name: '2.3.0')
+    with pytest.raises(RuntimeError, match='mcp 1.x'):
+        asyncio.run(literature.request({'transport': 'stdio', 'command': 'true'}))
+
+
+def test_ollama_critique_payload_includes_computed_results(monkeypatch):
+    from warden.planner import Ollama
+    sent = {}
+    o = Ollama({'model': 'm'})
+    monkeypatch.setattr(o, 'chat', lambda system, payload, schema: sent.update(payload) or {'approve': True, 'reason': 'r'})
+    o.critique({'action': 'propose'}, {'evidence': [], 'diagnoses': [], 'results': [{'candidate_id': 'a'}],
+                                       'kinetics': {'candidates': []}, 'agent_ranking': {'pick': 'a'}})
+    assert sent['results'] == [{'candidate_id': 'a'}] and sent['agent_ranking'] == {'pick': 'a'}

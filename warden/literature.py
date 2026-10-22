@@ -10,7 +10,17 @@ import jsonschema
 from .common import dumps
 
 
+def check_mcp_version():
+    """The adapter uses the mcp 1.x client API; 2.x renamed and reworked it."""
+    from importlib.metadata import version
+    found = version("mcp")
+    if found.split(".")[0] != "1":
+        raise RuntimeError(f"WARDEN's BOND adapter needs mcp 1.x (requirements-v2.txt pins mcp==1.26.0); "
+                           f"found mcp {found}. Run: python -m pip install -r requirements-v3.txt")
+
+
 async def request(config, tool=None, arguments=None):
+    check_mcp_version()
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
     from mcp.client.streamable_http import streamablehttp_client
