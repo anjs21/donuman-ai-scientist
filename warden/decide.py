@@ -23,7 +23,7 @@ import math
 import numpy as np
 from scipy.stats import norm
 from .common import clean
-from .kinetics import H_EVS, KB_EV, PATHWAYS
+from .kinetics import H_EVS, KB_EV, PATHWAYS, effective_barrier
 
 DEFAULTS = {
     "prior_mean_eV": {"SiO2": 0.9, "SiNx": 0.6}, "prior_sd_eV": 0.5,
@@ -432,13 +432,26 @@ class Agent:
         return best, acts[:5]
 
 
+def confident_stop(belief, agent, pcs):
+    """Stop only when a real choice has been made with confidence.
+
+    P(correct selection) is trivially 1 with a single candidate, so that alone
+    is not confidence. Being sure which of several infeasible candidates is
+    "best" is not a reason to stop either while untried molecules remain.
+    """
+    if not belief.obs or pcs < agent.cfg["target_pcs"] or len(belief.candidates) < 2:
+        return False
+    scores = belief.scores()
+    return scores[max(scores, key=scores.get)] > 0 or not agent.library
+
+
 def run(belief, executor, budget, library=(), methods=("xtb",), cfg=None, log=None, max_steps=200):
     """Closed loop: choose, execute, update, until confident or out of budget."""
     agent = Agent(belief, methods, library, cfg)
     spent, trace = 0., []
     for step in range(max_steps):
         pcs = belief.pcs()
-        if pcs >= agent.cfg["target_pcs"] and belief.obs:
+        if confident_stop(belief, agent, pcs):
             trace.append({"step": step, "stop": "confident", "pcs": pcs}); break
         action, shortlist = agent.choose(budget - spent)
         if action is None:
@@ -511,28 +524,35 @@ class LiveExecutor:
                                  {**self.config, "method": a.method},
                                  f"{self.artifact_dir}/{spec['id']}_{a.site.replace(':', '_')}_{a.pathway}_{a.method}_{a.orientation}.extxyz",
                                  a.orientation, a.pathway)
-            ok = r["status"] == "valid"
-            return Observation(a.candidate, a.site, a.pathway, a.method, r["status"],
-                               r["Ea_eV"] if ok else None, r["dE_rxn_eV"] if ok else None,
-                               None if ok else r["status"], self.cost[a.method]["cost"],
-                               source=f"live:{time.time() - start:.0f}s")
+            return to_observation(a.candidate, a.site, a.pathway, a.method, r, s["material"], self.config,
+                                  cost=self.cost[a.method]["cost"], source=f"live:{time.time() - start:.0f}s")
         except Exception as exc:
             return Observation(a.candidate, a.site, a.pathway, a.method, "failed", reason=str(exc),
                                cost=self.cost[a.method]["cost"], source=f"live:{time.time() - start:.0f}s")
 
 
-def observations_from_kinetics(records):
+def to_observation(candidate, site, pathway, method, attempt, material, config=None, cost=0., source="agent"):
+    """One NEB attempt as an observation. A barrierless attempt is a successful
+    calculation that bounds the barrier (see kinetics.CENSORED_AS); it must not
+    count as a method failure. Its reason records the censoring."""
+    ea = effective_barrier(attempt, material, config)
+    if ea is None:
+        return Observation(candidate, site, pathway, method, attempt.get("status", "failed"),
+                           reason=attempt.get("reason") or attempt.get("status"), cost=cost, source=source)
+    reason = "barrierless" if attempt.get("status") == "barrierless" else None
+    return Observation(candidate, site, pathway, method, "valid", ea, attempt.get("dE_rxn_eV"),
+                       reason, cost, source)
+
+
+def observations_from_kinetics(records, config=None):
     """Seed the belief with earlier kinetics screens (default pathway per template)."""
     out = []
     for k in records:
         pathway = PATHWAYS[k["template"]][0]
         for site in k["sites"]:
             for a in site.get("attempts", []):
-                ok = a.get("status") == "valid"
-                out.append(Observation(k["candidate_id"], site["label"], pathway, k["method"],
-                                       a.get("status", "failed"), a.get("Ea_eV") if ok else None,
-                                       a.get("dE_rxn_eV") if ok else None, a.get("reason"),
-                                       source="kinetics_record"))
+                out.append(to_observation(k["candidate_id"], site["label"], pathway, k["method"],
+                                          a, site["material"], config, source="kinetics_record"))
     return out
 
 
@@ -570,7 +590,8 @@ def markdown(result):
         what = (f"add {t.get('added')}" if a["kind"] == "add_molecule"
                 else f"{n(a['candidate'])} @ {a['site']} / {a['pathway']} / {a['method']} (orient {a['orientation']})")
         res = t.get("result") or {}
-        outcome = (f"Ea {res['Ea_eV']:.2f} eV" if res.get("status") == "valid"
+        outcome = (f"Ea {res['Ea_eV']:.2f} eV" + (" (barrierless, bound)" if res.get("reason") == "barrierless" else "")
+                   if res.get("status") == "valid"
                    else res.get("reason") or res.get("status") or "added")
         score = a["value"] * a["p_success"] / a["cost"]
         lines.append(f"| {t['step']} | {what} | {score:.3g} | {a['p_success']:.2f} | {outcome} | {a['why']} |")

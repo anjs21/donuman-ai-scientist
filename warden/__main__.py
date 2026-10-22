@@ -192,7 +192,7 @@ def decide_command(args):
         belief = dc.Belief(sites, candidates, cfg)
         rules = {**kin.DEFAULTS, **config.get('kinetics', {})}
         seeds = dc.observations_from_kinetics([kin.reclassify(r, rules) for r in store.all('kinetics')
-                                               if r['candidate_id'] in candidates])
+                                               if r['candidate_id'] in candidates], rules)
         for o in seeds + [dc.Observation(**r) for r in store.all('observation')]:
             if o.candidate in candidates and any(s['label'] == o.site for s in belief.sites):
                 belief.add(o)

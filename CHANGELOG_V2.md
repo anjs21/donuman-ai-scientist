@@ -38,3 +38,26 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
   confident stopping), live xTB/MACE executor, decision reports; CLI `decide`.
 - `warden/benchmark.py`: equal-budget synthetic benchmark vs four baselines; CLI `benchmark`.
 - Selectable reaction pathways in barrier endpoints; `process.stress_test`.
+
+# Fix: barrierless paths and the confident-stop rule
+
+- `kinetics.classify`: a converged, clean band that never rises by
+  `min_barrier_eV` and ends downhill is now `barrierless` (a fast reaction),
+  not a failure. Uphill bands without a maximum stay `no_barrier_resolved`.
+- Site barriers are the fastest usable path over orientations, including
+  barrierless ones (`select_best`). Previously a barrierless oxide path was
+  discarded and a slower orientation reported, which can make a non-selective
+  molecule look selective.
+- A barrierless barrier is censored (Ea <= `min_barrier_eV`) and resolved
+  against selectivity: 0 eV on SiO2, the bound on SiNx (`effective_barrier`).
+- `decide`: barrierless attempts are successful observations, not method
+  failures, both when seeded from stored records and in live runs.
+- `reclassify` re-scores stored records under these rules, so `assess` and
+  `decide` correct existing databases without recomputing.
+- `decide.run` no longer stops as "confident" with a single candidate, or
+  among only infeasible candidates while library molecules remain.
+- Regression fixture: `tests/fixtures/kinetics/acetyl_chloride_xtb_gas.json`.
+  Re-scored, acetyl chloride's oxide paths are barrierless in these xTB gas
+  models, so the control computes `prefers_SiO2` (dEa -0.21 eV) and the
+  assessment is `uncalibrated_fail`. The acetyl chloride row in V3_KINETICS.md
+  predates this fix and should be re-run.

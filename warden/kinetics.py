@@ -302,14 +302,58 @@ def classify(profile, converged, clash, config):
     elif clash or jump > config["max_image_jump_eV"]:
         status = "band_unresolved"
     elif ea < config["min_barrier_eV"]:
-        status = "no_barrier_resolved"
+        # A clean converged band that never rises by min_barrier_eV and ends downhill
+        # is a fast (barrierless) reaction: real chemistry, not a failed calculation.
+        # Uphill bands without a resolvable maximum stay unresolved.
+        status = "barrierless" if profile[-1] - profile[pre] <= 0 else "no_barrier_resolved"
     else:
         status = "valid"
     return {"status": status, "Ea_eV": ea, "ts_image": ts, "precomplex_image": pre,
+            "Ea_upper_eV": float(config["min_barrier_eV"]) if status == "barrierless" else None,
             "precomplex_shift_eV": float(profile[pre]),
             "dE_rxn_eV": float(profile[-1] - profile[pre]), "profile_eV": profile.tolist(),
             "max_image_jump_eV": jump, "image_clash": bool(clash),
             "stepwise_indication": bool(minima)}
+
+
+USABLE = ("valid", "barrierless")
+# A barrierless result is censored (Ea <= min_barrier_eV). It is resolved in the
+# direction that weakens selectivity: fastest possible on the growth surface
+# (SiO2, 0 eV), slowest still consistent on the non-growth surface (SiNx, bound).
+CENSORED_AS = {"SiO2": "lower", "SiNx": "upper"}
+
+
+def effective_barrier(attempt, material, config=None):
+    """Barrier (eV) an attempt contributes to its site, or None if unusable."""
+    config = {**DEFAULTS, **(config or {})}
+    if attempt.get("status") == "valid":
+        return float(attempt["Ea_eV"])
+    if attempt.get("status") == "barrierless":
+        return 0.0 if CENSORED_AS.get(material, "lower") == "lower" else float(config["min_barrier_eV"])
+    return None
+
+
+def select_best(attempts, material, config=None):
+    """Lowest effective barrier over usable attempts: the site's fastest path."""
+    best, best_ea = None, None
+    for i, a in enumerate(attempts):
+        ea = effective_barrier(a, material, config)
+        if ea is not None and (best_ea is None or ea < best_ea):
+            best, best_ea = {**a, "_index": i}, ea
+    if best is None:
+        return None
+    best["Ea_eff_eV"] = best_ea
+    return best
+
+
+def site_fields(best):
+    """Site-level fields derived from the selected attempt (None -> failed site)."""
+    if best is None:
+        return {"status": "failed", "Ea_eV": None, "dE_rxn_eV": None, "stepwise_indication": None,
+                "barrierless": None, "best_attempt": None}
+    return {"status": "valid", "Ea_eV": best["Ea_eff_eV"], "dE_rxn_eV": best["dE_rxn_eV"],
+            "stepwise_indication": best["stepwise_indication"],
+            "barrierless": best["status"] == "barrierless", "best_attempt": best["_index"]}
 
 
 def reclassify(record, config=None):
@@ -319,26 +363,25 @@ def reclassify(record, config=None):
     rows = []
     for site in record["sites"]:
         site = dict(site)
-        attempts, best = [], None
+        attempts = []
         for a in site.get("attempts", []):
             if a.get("profile_eV"):
                 a = {**a, **classify(a["profile_eV"], a["status"] != "neb_not_converged",
                                      a.get("image_clash", False), config)}
-                if a["status"] == "valid" and (best is None or a["Ea_eV"] < best["Ea_eV"]):
-                    best = a
             attempts.append(a)
-        old = next((a for a in site.get("attempts", []) if a.get("Ea_eV") == site.get("Ea_eV")
-                    and site.get("Ea_eV") is not None), None)
+        best = select_best(attempts, site["material"], config)
+        previous = site.get("attempts", [])
+        if site.get("best_attempt") is not None and site["best_attempt"] < len(previous):
+            old = previous[site["best_attempt"]]
+        else:  # records written before best_attempt existed
+            old = next((a for a in previous if a.get("Ea_eV") == site.get("Ea_eV")
+                        and site.get("Ea_eV") is not None), None)
         binding = site.get("precomplex_binding_eV")
         if binding is not None and old is not None:
             binding -= old.get("precomplex_shift_eV", 0.)  # back to the relaxed-start reference
         if binding is not None and best is not None:
             binding += best["precomplex_shift_eV"]
-        site.update(attempts=attempts, status="valid" if best else "failed",
-                    precomplex_binding_eV=binding if best else None,
-                    Ea_eV=best["Ea_eV"] if best else None,
-                    dE_rxn_eV=best["dE_rxn_eV"] if best else None,
-                    stepwise_indication=best["stepwise_indication"] if best else None)
+        site.update(attempts=attempts, precomplex_binding_eV=binding if best else None, **site_fields(best))
         rows.append(site)
     record.update(sites=rows, summary=summarize(rows), classification_rules=
                   {k: config[k] for k in ("min_barrier_eV", "max_image_jump_eV")})
@@ -413,17 +456,12 @@ def screen_kinetics(spec, sites, config, artifact_dir):
                             Path(artifact_dir) / f"{spec['id']}_{s['label'].replace(':', '_')}_{orientation}.extxyz",
                             orientation)
                 row["attempts"].append({"orientation": orientation, **r})
-                if r["status"] == "valid" and (best is None or r["Ea_eV"] < best["Ea_eV"]):
-                    best = r
             except Exception as exc:
                 row["attempts"].append({"orientation": orientation, "status": "failed", "reason": str(exc)})
+        best = select_best(row["attempts"], s["material"], config)
         binding = (best["e_reactant_complex_eV"] + best["precomplex_shift_eV"] - e_substrate - e_molecule
                    if best and e_substrate is not None and e_molecule is not None else None)
-        row.update(status="valid" if best else "failed",
-                   Ea_eV=best["Ea_eV"] if best else None,
-                   dE_rxn_eV=best["dE_rxn_eV"] if best else None,
-                   precomplex_binding_eV=binding,
-                   stepwise_indication=best["stepwise_indication"] if best else None)
+        row.update(precomplex_binding_eV=binding, **site_fields(best))
         rows.append(row)
     return clean({"candidate_id": spec["id"], "name": spec.get("name"), "smiles": spec["smiles"],
                   "template": spec["template"], "role": spec.get("role", "inhibitor"),

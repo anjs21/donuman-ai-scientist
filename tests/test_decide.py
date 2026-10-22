@@ -85,16 +85,49 @@ def test_escalation_preferred_only_when_cheap_bias_blocks_the_decision():
     assert best_dft > best_xtb
 
 
-def test_loop_stops_when_confident():
-    cands = {"a": CANDS["a"]}
-    b = dc.Belief(SITES, cands, dc.DEFAULTS)
-    b.add(obs("a", "n0", 0.5))
+class Never:
+    def execute(self, a, belief):
+        raise AssertionError("should not run")
 
-    class Never:
-        def execute(self, a, belief):
-            raise AssertionError("should not run")
+
+def separated_belief(gs=(1.5, 0.3), ngs=(0.5, 1.2)):
+    """Two candidates, every leaf observed: 'a' is clearly better than 'b'.
+    gs/ngs give (a, b) barriers on the oxide and nitride sites."""
+    b = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+    for pathway in ("addition", "four_centre"):
+        for _ in range(3):
+            for site, good, bad in (("g0", *gs), ("g1", *gs), ("n0", *ngs), ("n1", *ngs)):
+                b.add(obs("a", site, good, pathway=pathway))
+                b.add(obs("b", site, bad, pathway=pathway))
+    return b
+
+
+def test_loop_stops_when_confident():
+    b = separated_belief()
+    assert b.pcs() >= dc.DEFAULTS["target_pcs"]
     r = dc.run(b, Never(), 10., cfg=dc.DEFAULTS)
-    assert r["trace"][-1]["stop"] == "confident"
+    assert r["trace"][-1]["stop"] == "confident" and r["spent"] == 0
+
+
+def test_single_candidate_is_never_confident():
+    """P(correct selection) is trivially 1 with one candidate; that is not a reason to stop."""
+    b = dc.Belief(SITES, {"a": CANDS["a"]}, dc.DEFAULTS)
+    b.add(obs("a", "n0", 0.5))
+    assert b.pcs() == 1.0
+    assert not dc.confident_stop(b, dc.Agent(b, ["xtb"]), b.pcs())
+
+
+def test_confidence_among_infeasible_candidates_does_not_block_new_molecules():
+    library = [{"id": "c", "name": "c", "template": "acylation"}]
+    # Both candidates react fast with the oxide: confidently ranked, both infeasible.
+    b = separated_belief(gs=(0.8, 0.2), ngs=(0.5, 1.2))
+    assert b.pcs() >= dc.DEFAULTS["target_pcs"] and max(b.scores().values()) < 0
+    assert not dc.confident_stop(b, dc.Agent(b, ["xtb"], library), b.pcs())
+    assert dc.confident_stop(b, dc.Agent(b, ["xtb"]), b.pcs())     # nothing left to try: stop
+    # A feasible, confident pick stops even with molecules left in the library.
+    good = separated_belief()
+    assert max(good.scores().values()) > 0
+    assert dc.confident_stop(good, dc.Agent(good, ["xtb"], library), good.pcs())
 
 
 def test_synthetic_world_truth_is_hidden_and_consistent():

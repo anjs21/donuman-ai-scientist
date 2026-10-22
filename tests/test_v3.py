@@ -166,10 +166,17 @@ def test_barrier_measured_from_lowest_preceding_image():
 
 
 @pytest.mark.parametrize("profile,status", [
-    ([0., -.02, -.10, -.15, -.40, -.5], "no_barrier_resolved"),
+    ([0., .01, .02, .03, .04, .3], "no_barrier_resolved"),   # uphill, no resolvable maximum
     ([0., .1, 4.0, 4.1, .2, -.5], "band_unresolved")])
 def test_unresolved_paths_are_not_barriers(profile, status):
     assert kin.classify(profile, True, False, {})["status"] == status
+
+
+def test_downhill_band_without_rise_is_barrierless_not_failed():
+    r = kin.classify([0., -.02, -.10, -.15, -.40, -.5], True, False, {})
+    assert r["status"] == "barrierless" and r["Ea_upper_eV"] == pytest.approx(.05)
+    # Not converged is still a failure, whatever the profile looks like.
+    assert kin.classify([0., -.02, -.10, -.15, -.40, -.5], False, False, {})["status"] == "neb_not_converged"
 
 
 def test_reclassify_updates_stored_record_without_recomputing():
@@ -178,4 +185,59 @@ def test_reclassify_updates_stored_record_without_recomputing():
     record = {"name": "x", "sites": [{"material": "SiO2", "label": "gs", "population": 1, "status": "valid",
                                       "Ea_eV": -.02, "precomplex_binding_eV": -.1, "attempts": [attempt]}]}
     out = kin.reclassify(record)
-    assert out["sites"][0]["status"] == "failed" and out["summary"]["SiO2"] is None
+    site = out["sites"][0]
+    assert site["status"] == "valid" and site["barrierless"] and site["Ea_eV"] == 0.0
+    assert out["summary"]["SiO2"]["Ea_min_eV"] == 0.0
+
+
+# --- barrierless paths are fast reactions, not failures ------------------------
+
+def test_barrierless_oxide_path_wins_over_slower_orientation():
+    """The bias this guards against: one orientation finds a barrierless oxide
+    reaction, another a 0.92 eV path. The site barrier is the fastest path (0 eV),
+    not the slower one, or a non-selective molecule looks selective."""
+    fast = {"status": "no_barrier_resolved", "Ea_eV": .017, "dE_rxn_eV": -.46,
+            "profile_eV": [0., -.01, -.01, 0., -.25, -.5], "precomplex_shift_eV": 0., "stepwise_indication": False}
+    slow = {"status": "valid", "Ea_eV": .92, "dE_rxn_eV": -.5,
+            "profile_eV": [0., .3, .92, .5, -.2, -.5], "precomplex_shift_eV": 0., "stepwise_indication": False}
+    record = {"name": "x", "sites": [{"material": "SiO2", "label": "gs", "population": 1, "status": "valid",
+                                      "Ea_eV": .92, "precomplex_binding_eV": -.2, "attempts": [fast, slow]}]}
+    site = kin.reclassify(record)["sites"][0]
+    assert site["Ea_eV"] == 0.0 and site["barrierless"] and site["best_attempt"] == 0
+
+
+def test_censored_barrier_resolved_against_selectivity():
+    a = {"status": "barrierless", "Ea_eV": .02}
+    assert kin.effective_barrier(a, "SiO2") == 0.0                 # oxide: as fast as possible
+    assert kin.effective_barrier(a, "SiNx") == pytest.approx(.05)  # nitride: slowest consistent
+    assert kin.effective_barrier({"status": "band_unresolved", "Ea_eV": 5.}, "SiO2") is None
+
+
+def test_real_acetyl_chloride_record_is_reclassified():
+    """xTB run whose oxide paths were all barrierless and so were discarded."""
+    import json
+    from pathlib import Path
+    record = json.loads((Path(__file__).parent / "fixtures/kinetics/acetyl_chloride_xtb_gas.json").read_text())
+    assert record["summary"]["SiO2"] is None                       # what the old code reported
+    out = kin.reclassify(record)
+    sites = {s["label"]: s for s in out["sites"]}
+    assert sites["gas:OH"]["status"] == "valid" and sites["gas:OH"]["Ea_eV"] == 0.0
+    assert sites["gas:NH_bridge"]["barrierless"] and sites["gas:NH_bridge"]["Ea_eV"] == pytest.approx(.05)
+    assert sites["gas:NH2"]["Ea_eV"] == pytest.approx(.367, abs=.005) and not sites["gas:NH2"]["barrierless"]
+    # The oxide now reacts at least as fast as the nitride: no kinetic selectivity.
+    assert out["summary"]["dEa_GS_minus_NGS_eV"] < 0
+
+
+def test_barrierless_attempts_seed_successes_not_failures():
+    import json
+    from pathlib import Path
+    from warden import decide as dc
+    record = json.loads((Path(__file__).parent / "fixtures/kinetics/acetyl_chloride_xtb_gas.json").read_text())
+    obs = dc.observations_from_kinetics([kin.reclassify(record)])
+    by_status = {}
+    for o in obs:
+        by_status.setdefault((o.site, o.status, o.reason), []).append(o.Ea_eV)
+    assert by_status[("gas:OH", "valid", "barrierless")] == [0.0, 0.0]
+    assert ("gas:NH_bridge", "valid", "barrierless") in by_status
+    # Genuine numerical failures stay failures.
+    assert any(o.status != "valid" for o in obs if o.site == "gas:NH_bridge")
