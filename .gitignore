@@ -82,3 +82,7 @@ examples/surfaces-live.json
 
 # Machine-specific configuration
 config/*.local.json
+
+# Literature loop scratch databases (evidence/ itself is tracked)
+evidence/*.sqlite
+evidence/*.sqlite-*

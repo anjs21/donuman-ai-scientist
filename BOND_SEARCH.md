@@ -22,6 +22,19 @@ codex mcp login valency
 ```
 
 Complete browser authorization and start a new Codex session to load the tools.
+
+For **Claude Code** (from the same repository's README):
+
+```bash
+claude plugin marketplace add valency-oss/valency-connectors --scope user
+claude plugin install valency@valency-claude-plugin --scope user
+claude mcp login plugin:valency:valency
+```
+
+Restart Claude Code or run `/reload-plugins`. Opened in this repository, Claude
+Code also loads the project skill `.claude/skills/warden-literature`, which runs
+the literature loop below. Sign-in needs a browser: on a cluster without one,
+search from a laptop and move files through git (see the skill).
 Client-managed OAuth credentials are separate from WARDEN's Python adapter;
 do not extract or copy client credentials. In hosted clients, use the supported
 plugin installation and sign-in flow for that client.
@@ -39,7 +52,11 @@ python -m warden bond-tools --config config/bond.json --out runs/bond-tools.json
 Inspect the live inventory and argument schemas. Add only the literature
 search/read tools you intend to use to allowed_tools in the local config.
 Both examples start with an empty allowlist. Do not infer tool names or
-argument schemas from example prompts. Network access needs mcp.valency.io
+argument schemas from example prompts. The Valency connector documents these
+read tools: `semantic_search_papers`, `search_by_abstract`, `search_by_title`,
+`get_paper_by_id`, `find_similar_papers`, `get_citing_papers`; confirm each in
+the live inventory before allowlisting it. `bond-call` refuses tools whose names
+send or change data (for example `submit_feedback`) even if allowlisted. Network access needs mcp.valency.io
 and oauth.valency.io (the authorization server advertised by BOND's protected
 resource metadata), plus any further destinations reported by sign-in.
 
@@ -74,6 +91,32 @@ keyword and semantic search with source=chemrxiv. Category tools do not work
 for that source. Confirm the live schema and available sources; search both
 ChemRxiv and other relevant corpora. Label preprints and deduplicate published
 versions. BOND coverage is not the entire published literature.
+
+## The literature loop
+
+```bash
+# 1. What the calculations say, and what to ask (no LLM; reproducible)
+python -m warden lit-brief --db <db> --config config/v3.json --out evidence/brief
+# 2-3. Search (Claude Code + Valency plugin), then capture each cited paper
+python -m warden bond-call --config config/bond.json --tool get_paper_by_id \
+  --arguments <args.json> --out evidence/searches/<name>.json
+python -m warden add-evidence --db <db> --file evidence/searches/<name>.json   # prints ev_ IDs
+# 4. Write evidence/proposals.json (format in .claude/skills/warden-literature/SKILL.md)
+# 5. Validate quotes, chemistry and novelty; tested molecules first
+python -m warden lit-import --db <db> --candidates evidence/proposals.json --out evidence/library.json
+# 6. Let the agent decide what to compute
+python -m warden decide --db <db> --sites gas --budget 6 --library evidence/library.json --dry-run
+```
+
+`lit-brief` reads stored kinetics screens and the decision agent's own
+observations. Chemical outcomes (a barrier, a barrierless path, a reaction on
+contact) become literature questions; numerical failures (SCF, unconverged or
+unresolved bands) become method actions only. `lit-brief` also writes starting
+`bond-call` arguments to `evidence/brief/queries/`.
+
+Quotes are matched against the readable text of the captured record: escaped
+JSON, subscripts (SiO₂ = SiO2), typographic quotes, dashes and whitespace are
+normalised. Quotes must be verbatim and at least 12 characters.
 
 ## Use previous results to choose questions
 

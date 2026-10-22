@@ -61,3 +61,22 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
   models, so the control computes `prefers_SiO2` (dEa -0.21 eV) and the
   assessment is `uncalibrated_fail`. The acetyl chloride row in V3_KINETICS.md
   predates this fix and should be re-run.
+
+# Literature loop (Valency BOND)
+
+- `warden lit-brief`: reads kinetics screens and the decision agent's
+  observations; separates chemical outcomes from numerical failures; writes a
+  brief, literature questions and starting `bond-call` arguments. No LLM.
+- `warden lit-import`: validates literature-backed proposals (verbatim quotes,
+  `literature_status` tested/analog, hypothesis, falsification, novelty) and
+  writes a library for `decide --library`, literature-tested molecules first.
+- Quote checks now match the readable text of captured records. Previously the
+  escaped JSON written by `bond-call` made quotes containing subscripts, Å,
+  quotation marks or line breaks impossible to match.
+- `decide --library` re-checks evidence references against the database, so
+  literature-backed entries are accepted.
+- `bond-call` refuses tools whose names send or change data (e.g.
+  `submit_feedback`) even if allowlisted, before connecting.
+- `add-evidence` prints the evidence IDs it stores.
+- Claude Code: install commands in BOND_SEARCH.md; project skill
+  `.claude/skills/warden-literature`; tracked `evidence/` folder.

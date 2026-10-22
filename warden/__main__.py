@@ -1,5 +1,6 @@
 """Reproducible v2 entry points. Run from the repository root."""
 import argparse
+import json
 import sys
 from pathlib import Path
 from .common import read_json, write_json, digest
@@ -16,10 +17,71 @@ def configuration(path):
 
 
 def add_evidence(store, path):
+    ids = []
     for row in read_json(path):
         if not row.get('text') or not row.get('source'):
             raise ValueError('Evidence needs text and source')
-        store.evidence(row['text'], row['source'], row.get('kind', 'curated_summary'))
+        ids.append(store.evidence(row['text'], row['source'], row.get('kind', 'curated_summary')))
+        src = row['source'] if isinstance(row['source'], dict) else {'source': row['source']}
+        # IDs hash text+source+kind, so the same file gives the same IDs in every database.
+        print(ids[-1], src.get('tool', ''), json.dumps(src.get('arguments', src.get('source', '')))[:100])
+    return ids
+
+
+def lit_brief_command(args):
+    from . import kinetics as kin
+    from .lit import lit_brief, brief_markdown
+    config = read_json(args.config)
+    rules = {**kin.DEFAULTS, **config.get('kinetics', {})}
+    from .lit import gather
+    store = Store(args.db)
+    try:
+        candidates = {c['id']: c for c in store.all('candidate')}
+        records, skipped = gather([kin.reclassify(r, rules) for r in store.all('kinetics')],
+                                  store.all('observation'), candidates, rules)
+    finally:
+        store.close()
+    brief = lit_brief(records)
+    if skipped:
+        print(f"note: {skipped} agent observations skipped (unknown site material or candidate)")
+    out = Path(args.out); (out / 'queries').mkdir(parents=True, exist_ok=True)
+    write_json(out / 'brief.json', brief)
+    (out / 'brief.md').write_text(brief_markdown(brief))
+    for i, q in enumerate(brief['questions'], 1):
+        # Starting arguments for `warden bond-call`; check the live schema from `bond-tools`
+        # and add fields it requires (e.g. a source or limit) before calling.
+        write_json(out / 'queries' / f'q{i:02d}.json', {'query': q['query']})
+    print(f"Literature brief: {out / 'brief.md'} | {len(brief['questions'])} questions, "
+          f"{len(brief['method_actions'])} method actions")
+    return 0
+
+
+def lit_import_command(args):
+    from .lit import import_candidates
+    store = Store(args.db)
+    try:
+        evidence = {e['id']: e for e in store.all('evidence')}
+        known = {r.get('canonical_smiles') for r in store.all('candidate')}
+        known |= {r.get('canonical_smiles') for r in store.all('literature_candidate')}
+        from .chemistry import validate_candidate
+        for k in store.all('kinetics'):
+            try:
+                known.add(validate_candidate({'name': 'x', 'smiles': k['smiles'], 'template': k['template']})['canonical_smiles'])
+            except (ValueError, KeyError):
+                pass
+        known.discard(None)
+        library, rejected = import_candidates(read_json(args.candidates), evidence, known)
+        for spec in library:
+            store.put('literature_candidate', spec['id'], spec)
+        store.event('literature_import', {'accepted': [s['name'] for s in library], 'rejected': rejected})
+    finally:
+        store.close()
+    write_json(args.out, library)
+    for r in rejected:
+        print(f"rejected {r['name']}: {r['reason']}")
+    print(f"Library: {args.out} | {len(library)} accepted "
+          f"({sum(s['literature_status'] == 'tested' for s in library)} literature-tested), {len(rejected)} rejected")
+    return 0 if library else 2
 
 
 def screen_command(args):
@@ -181,8 +243,11 @@ def decide_command(args):
             sites = kin.sites_for('gas')
         candidates = {c['id']: c for c in store.all('candidate') if c['template'] in kin.SUBSTITUTION}
         library = []
+        evidence = {e['id']: e for e in store.all('evidence')}
         for raw in (read_json(args.library) if args.library else []):
-            spec = validate_candidate(raw)
+            # Literature-backed entries (from lit-import) carry evidence references,
+            # re-checked against this database's evidence.
+            spec = validate_candidate(raw, evidence)
             if spec['template'] in kin.SUBSTITUTION and spec['id'] not in candidates:
                 library.append(spec)
         if args.candidates:
@@ -257,6 +322,12 @@ def main(argv=None):
     bc.add_argument('--config', required=True); bc.add_argument('--tool', required=True)
     bc.add_argument('--arguments', required=True, help='Path to a JSON object matching the discovered tool schema')
     bc.add_argument('--out', required=True, help='New evidence JSON file; existing files are never overwritten')
+    lb = commands.add_parser('lit-brief', help='Turn computed outcomes into literature questions (no LLM)')
+    lb.add_argument('--db', required=True); lb.add_argument('--config', required=True)
+    lb.add_argument('--out', default='runs/literature')
+    li = commands.add_parser('lit-import', help='Validate literature-backed candidates into a decide library')
+    li.add_argument('--db', required=True); li.add_argument('--candidates', required=True)
+    li.add_argument('--out', required=True, help='Library JSON for `warden decide --library`')
     r = commands.add_parser('report')
     r.add_argument('--db', required=True); r.add_argument('--out', default='runs/report')
     for name in ('screen', 'campaign'):
@@ -339,6 +410,10 @@ def main(argv=None):
                 output.write('\n')
             print('Literature evidence:', destination)
             return 0
+        if args.command == 'lit-brief':
+            return lit_brief_command(args)
+        if args.command == 'lit-import':
+            return lit_import_command(args)
         if args.command == 'screen':
             screen_command(args); return 0
         if args.command == 'kinetics':

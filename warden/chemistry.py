@@ -10,6 +10,7 @@ import numpy as np
 from ase import Atoms
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors
+from .lit import quote_in
 from .common import digest
 
 ALLOWED_ELEMENTS = {"H", "C", "N", "O", "Si", "Cl", "F", "P", "S"}
@@ -70,8 +71,9 @@ def validate_candidate(spec, evidence=None, require_evidence=False):
         if not isinstance(ref, dict):
             raise ValueError("Each evidence reference needs id and quote")
         item = (evidence or {}).get(ref.get("id"))
-        if item is None or not ref.get("quote") or ref["quote"] not in item["text"]:
-            raise ValueError("Evidence quote is absent from the retrieved source record")
+        if item is None or not ref.get("quote") or not quote_in(ref["quote"], item["text"]):
+            raise ValueError("Evidence quote is absent from the retrieved source record "
+                             "(quotes must be verbatim, at least 12 characters)")
     if require_evidence and (not spec.get("hypothesis") or not spec.get("falsification")):
         raise ValueError("State a hypothesis and a falsifying observation")
     identity = Chem.Mol(mol)

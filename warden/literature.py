@@ -42,6 +42,8 @@ async def request(config, tool=None, arguments=None):
             return inventory
         if tool not in config.get("allowed_tools", []):
             raise ValueError("MCP tool is not in the explicit read-only allowlist")
+        if not read_only(tool):
+            raise ValueError(f"MCP tool {tool!r} looks like it writes or sends data; refused even if allowlisted")
         definition = next((t for t in inventory if t["name"] == tool), None)
         if definition is None:
             raise ValueError("Configured MCP tool is absent from the live inventory")
@@ -52,6 +54,21 @@ async def request(config, tool=None, arguments=None):
         return result.model_dump(mode="json")
 
 
+# Verbs that send, change or delete data. Valency's submit_feedback is one; the
+# research tools (search_*, semantic_search_*, get_*, find_*, export_*) are reads.
+WRITE_VERBS = ("submit", "send", "post", "create", "update", "delete", "remove", "write",
+               "publish", "upload", "set", "add", "edit", "purchase", "invite")
+# Read-only literature tools named in valency-oss/valency-connectors (rules/valency.md,
+# skills/). The live inventory from `bond-tools` remains the authority on names and schemas.
+VALENCY_READ_TOOLS = ("semantic_search_papers", "search_by_abstract", "search_by_title",
+                      "get_paper_by_id", "find_similar_papers", "get_citing_papers")
+
+
+def read_only(name):
+    base = name.rsplit("__", 1)[-1].lower()
+    return not any(base == v or base.startswith(v + "_") for v in WRITE_VERBS)
+
+
 class Bond:
     def __init__(self, config):
         self.config = config
@@ -60,4 +77,9 @@ class Bond:
         return asyncio.run(request(self.config))
 
     def call(self, name, args):
+        # Refuse before connecting, so the reason is not buried in an async error group.
+        if name not in self.config.get("allowed_tools", []):
+            raise ValueError(f"MCP tool {name!r} is not in the explicit read-only allowlist")
+        if not read_only(name):
+            raise ValueError(f"MCP tool {name!r} looks like it writes or sends data; refused even if allowlisted")
         return asyncio.run(request(self.config, name, args))
