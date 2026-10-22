@@ -256,8 +256,12 @@ def decide_command(args):
                 store.put('candidate', spec['id'], spec); candidates[spec['id']] = spec
         belief = dc.Belief(sites, candidates, cfg)
         rules = {**kin.DEFAULTS, **config.get('kinetics', {})}
-        seeds = dc.observations_from_kinetics([kin.reclassify(r, rules) for r in store.all('kinetics')
-                                               if r['candidate_id'] in candidates], rules)
+        stored = [r for r in store.all('kinetics') if r['candidate_id'] in candidates]
+        kept = dc.latest_kinetics(stored, [e['id'] for e in store.events('kinetics_finished')])
+        if len(kept) < len(stored):
+            print(f"note: {len(stored) - len(kept)} superseded kinetics record(s) not seeded "
+                  "(same candidate, sites and method as a later run)")
+        seeds = dc.observations_from_kinetics([kin.reclassify(r, rules) for r in kept], rules)
         for o in seeds + [dc.Observation(**r) for r in store.all('observation')]:
             if o.candidate in candidates and any(s['label'] == o.site for s in belief.sites):
                 belief.add(o)

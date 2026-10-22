@@ -41,6 +41,11 @@ class Store:
                         (datetime.now(timezone.utc).isoformat(), kind, dumps(body)))
         self.db.commit()
 
+    def events(self, kind):
+        """Event bodies of one kind, oldest first."""
+        return [json.loads(r[0]) for r in self.db.execute(
+            "SELECT body FROM events WHERE kind=? ORDER BY seq", (kind,))]
+
     def evidence(self, text, source, kind="literature"):
         key = "ev_" + digest({"text": text, "source": source, "kind": kind})[:16]
         self.put("evidence", key, {"id": key, "text": text, "source": source,

@@ -130,6 +130,103 @@ def test_confidence_among_infeasible_candidates_does_not_block_new_molecules():
     assert dc.confident_stop(good, dc.Agent(good, ["xtb"], library), good.pcs())
 
 
+def test_orientations_take_the_fastest_path_and_repeats_average():
+    """Orientations are different paths to one site: the leaf is the fastest of
+    them (as kinetics.select_best). Only repeats of one orientation are averaged."""
+    def leaf(orientations):
+        b = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+        for ea, o in zip((0.2, 1.0), orientations):
+            b.add(dc.Observation("a", "g0", "addition", "xtb", "valid", ea, -0.5, orientation=o))
+        return b.leaf_marginal("a", "SiO2", 0)[0]
+    one = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+    one.add(dc.Observation("a", "g0", "addition", "xtb", "valid", 0.2, -0.5, orientation=0))
+    assert leaf((0, 1)) == pytest.approx(one.leaf_marginal("a", "SiO2", 0)[0], abs=1e-9)
+    assert leaf((0, 0)) > leaf((0, 1)) + 0.2              # same orientation: averaged
+
+
+def test_hypothetical_new_orientation_can_only_lower_a_leaf():
+    b = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+    b.add(dc.Observation("a", "g0", "addition", "xtb", "valid", 0.5, -0.5, orientation=0))
+    ys = np.array([0.2, 0.5, 2.0])
+    ybar, _, _, _ = b._data("a", b.leaves("a", "SiO2"), "SiO2", (0, ys, "xtb"))
+    bias = b.methods.bias("xtb", "SiO2", "acylation")[0]
+    assert ybar[:, 0] + bias == pytest.approx([0.2, 0.5, 0.5])
+
+
+def test_kinetics_seeds_keep_their_orientation():
+    record = {"candidate_id": "a", "template": "acylation", "method": "xtb", "sites": [
+        {"label": "g0", "material": "SiO2", "attempts": [
+            {"orientation": 0, "status": "valid", "Ea_eV": 0.3, "dE_rxn_eV": -0.4},
+            {"orientation": 1, "status": "valid", "Ea_eV": 0.9, "dE_rxn_eV": -0.4}]}]}
+    seeds = dc.observations_from_kinetics([record])
+    assert [o.orientation for o in seeds] == [0, 1]
+
+
+def test_latest_kinetics_record_supersedes_reruns():
+    def rec(rid, method="xtb", fingerprint="gas_models"):
+        return {"id": rid, "candidate_id": "a", "method": method, "surface_fingerprint": fingerprint}
+    kept = dc.latest_kinetics([rec("k2"), rec("k1"), rec("k3", "mace"), rec("k4", fingerprint="slab")],
+                              finished=["k1", "k2", "k3", "k4"])
+    assert sorted(r["id"] for r in kept) == ["k2", "k3", "k4"]
+    # Without completion events the last record supplied wins.
+    assert [r["id"] for r in dc.latest_kinetics([rec("k2"), rec("k1")])] == ["k1"]
+
+
+NEW_ACYL = {"id": "n_acyl", "name": "new acyl", "template": "acylation"}
+NEW_SILYL = {"id": "n_silyl", "name": "new silyl", "template": "silyl_substitution"}
+
+
+def add_values(b, library=(NEW_ACYL, NEW_SILYL)):
+    acts = dc.Agent(b, ["xtb"], list(library)).actions()
+    return {a.extra["id"]: a.value for a in acts if a.kind == "add_molecule"}
+
+
+def test_every_library_molecule_is_valued_and_equal_before_any_results():
+    v = add_values(dc.Belief(SITES, {}, dc.DEFAULTS))
+    assert set(v) == {"n_acyl", "n_silyl"} and v["n_acyl"] == pytest.approx(v["n_silyl"])
+
+
+def test_class_results_inform_the_next_molecule():
+    """Every acylating agent so far caps silanols with no barrier: the next
+    acylating agent is expected to do the same, so a silylating agent is preferred."""
+    bad = separated_belief(gs=(0.05, 0.0), ngs=(0.5, 0.6))
+    bad.add_candidate(NEW_ACYL); bad.add_candidate(NEW_SILYL)
+    assert bad.prior("n_acyl", "SiO2")[0] < dc.DEFAULTS["prior_mean_eV"]["SiO2"] - 0.3
+    assert bad.prior("n_silyl", "SiO2")[0] == pytest.approx(dc.DEFAULTS["prior_mean_eV"]["SiO2"])
+    del bad.candidates["n_acyl"], bad.candidates["n_silyl"]
+    v = add_values(bad)
+    assert v["n_silyl"] > v["n_acyl"]
+    # Promising acylation results favour another acylating agent instead.
+    good = separated_belief(gs=(1.6, 1.5), ngs=(0.5, 0.55))
+    v = add_values(good)
+    assert v["n_acyl"] > v["n_silyl"]
+
+
+def test_a_candidate_does_not_inform_its_own_prior():
+    b = dc.Belief(SITES, {"a": CANDS["a"]}, dc.DEFAULTS)
+    b.add(obs("a", "g0", 0.0))
+    assert b.prior("a", "SiO2")[0] == pytest.approx(dc.DEFAULTS["prior_mean_eV"]["SiO2"])
+
+
+def test_literature_prior_replaces_the_class_mean():
+    b = separated_belief(gs=(0.05, 0.0), ngs=(0.5, 0.6))
+    b.add_candidate({**NEW_ACYL, "prior_Ea_eV": {"SiO2": 1.4}, "prior_sd_eV": 0.2})
+    assert b.prior("n_acyl", "SiO2") == pytest.approx((1.4, 0.2))
+    assert b.prior("n_acyl", "SiNx")[0] < dc.DEFAULTS["prior_mean_eV"]["SiNx"]   # class mean still used
+
+
+def test_run_adds_the_best_library_molecule_not_the_first():
+    b = separated_belief(gs=(0.05, 0.0), ngs=(0.5, 0.6))
+    r = dc.run(b, Never(), dc.DEFAULTS["new_molecule_cost"], [NEW_ACYL, NEW_SILYL], methods=(), cfg=dc.DEFAULTS)
+    added = [t["added"] for t in r["trace"] if "added" in t]
+    assert added == ["new silyl"] and "n_silyl" in b.candidates and "n_acyl" not in b.candidates
+
+
+def test_benchmark_world_orientations_include_the_true_path():
+    w = make_world(5)
+    assert all(e.min() == 0. and len(e) == 4 for e in w["excess"].values())
+
+
 def test_synthetic_world_truth_is_hidden_and_consistent():
     w = make_world(3)
     assert len(w["candidates"]) == 6 and w["truth"]

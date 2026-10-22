@@ -154,6 +154,17 @@ def test_import_orders_tested_first_and_rejects_unsupported():
         assert validate_candidate(spec, ev)["id"] == spec["id"]
 
 
+def test_import_checks_an_own_prior():
+    ev = {"ev_test": bond_call_evidence()}
+    ok, bad = proposals()[1], proposals()[0]
+    ok = {**ok, "prior_Ea_eV": {"SiO2": 1.2, "SiNx": 0.6}, "prior_sd_eV": 0.25}
+    bad = {**bad, "prior_Ea_eV": {"SiO2": "high"}}
+    library, rejected = import_candidates([ok, bad], ev)
+    assert [s["name"] for s in library] == ["acetic anhydride"]
+    assert library[0]["prior_Ea_eV"] == {"SiO2": 1.2, "SiNx": 0.6}
+    assert "prior_Ea_eV" in rejected[0]["reason"]
+
+
 def test_cli_brief_and_import(tmp_path):
     db = tmp_path / "c.sqlite"
     store = Store(db)

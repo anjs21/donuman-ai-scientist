@@ -69,6 +69,11 @@ have already shown.
     "evidence": [{"id": "ev_...", "quote": "verbatim passage from the captured record"}]}
    ```
 
+   Optional, only when a captured source reports or directly implies barriers for
+   this molecule: `"prior_Ea_eV": {"SiO2": 1.2, "SiNx": 0.6}` and `"prior_sd_eV": 0.25`.
+   `decide` then uses them instead of what the molecule's reaction class has shown
+   so far. Leave them out otherwise; never invent numbers.
+
    Templates: `acylation` (carbonyl carbon `[C:1]`, leaving atom `:2` = Cl, O or N),
    `silyl_substitution` (`[Si:1]`, leaving Cl or N `:2`), `physisorption` (no maps).
    Neutral, closed-shell, one molecule. Prefer molecules that address the brief's

@@ -26,7 +26,7 @@ from .common import clean
 from .kinetics import H_EVS, KB_EV, PATHWAYS, effective_barrier
 
 DEFAULTS = {
-    "prior_mean_eV": {"SiO2": 0.9, "SiNx": 0.6}, "prior_sd_eV": 0.5,
+    "prior_mean_eV": {"SiO2": 0.9, "SiNx": 0.6}, "prior_sd_eV": 0.5, "template_sd_eV": 0.3,
     "site_sd_eV": 0.2, "pathway_sd_eV": 0.2,
     "methods": {"xtb": {"cost": 1.0, "sigma_barrier_eV": 0.15, "sigma_reaction_eV": 0.10, "bias_sd_eV": 0.20},
                 "mace": {"cost": 0.3, "sigma_barrier_eV": 0.25, "sigma_reaction_eV": 0.15, "bias_sd_eV": 0.30},
@@ -149,6 +149,7 @@ class Observation:
     reason: str = None
     cost: float = 0.
     source: str = "agent"
+    orientation: int = None  # None (older records): all such results count as one orientation
 
 
 class Belief:
@@ -161,8 +162,12 @@ class Belief:
         self.methods = MethodModel(cfg)
         self.failures = FailureModel(cfg)
         self._z = {}
+        self._prior = {}
 
     # --- structure -------------------------------------------------------------
+    def add_candidate(self, spec):
+        self.candidates[spec["id"]] = spec
+
     def leaves(self, cid, material):
         template = self.candidates[cid]["template"]
         return [(s["label"], p) for s in self.sites if s["material"] == material for p in PATHWAYS[template]]
@@ -188,21 +193,92 @@ class Belief:
                 if cheap.dE_rxn_eV is not None and exact.dE_rxn_eV is not None:
                     self.methods.add(cheap.method, "reaction", site["material"], t, cheap.dE_rxn_eV - exact.dE_rxn_eV)
 
-    def _data(self, cid, leaves, material):
-        """Bias-corrected leaf means, noise precisions, and the residual bias
-        variance of the data (precision-weighted over the methods used)."""
-        template = self.candidates[cid]["template"]
-        ybar = np.zeros(len(leaves)); prec = np.zeros(len(leaves)); bvar = 0.; total = 0.
+    def _measurements(self, cid, leaves):
+        """Per (leaf, method): (value, n) of the lowest-barrier orientation.
+
+        Orientations are different reaction paths to the same site, so the
+        leaf barrier is the fastest of them (as kinetics.select_best) and they
+        are not averaged; only repeats of one orientation are averaged.
+        """
         index = {l: i for i, l in enumerate(leaves)}
+        runs = {}
         for o in self.obs:
             if o.candidate == cid and o.status == "valid" and (o.site, o.pathway) in index:
-                i = index[(o.site, o.pathway)]
-                mean, var = self.methods.bias(o.method, material, template)
-                w = 1 / self.methods.noise(o.method) ** 2
-                ybar[i] = (ybar[i] * prec[i] + (o.Ea_eV - mean) * w) / (prec[i] + w)
-                prec[i] += w
-                bvar += w * var; total += w
-        return ybar, prec, (bvar / total if total else 0.), total
+                runs.setdefault((index[(o.site, o.pathway)], o.method, o.orientation), []).append(o.Ea_eV)
+        best = {}
+        for (i, method, _), ys in runs.items():
+            y = float(np.mean(ys))
+            if (i, method) not in best or y < best[(i, method)][0]:
+                best[(i, method)] = (y, len(ys))
+        return best
+
+    def _data(self, cid, leaves, material, extra=None):
+        """Bias-corrected leaf means and noise precisions, shape (K, leaves), and
+        the residual bias variance of the data, shape (K,) (precision-weighted
+        over the methods used). extra = (leaf_index, raw values[K], method): a
+        hypothetical result at a new orientation, which replaces that method's
+        value on the leaf only where it is lower."""
+        template = self.candidates[cid]["template"]
+        k = 1 if extra is None else len(extra[1])
+        entries = {key: (np.full(k, y), np.full(k, float(n)))
+                   for key, (y, n) in self._measurements(cid, leaves).items()}
+        if extra is not None:
+            i, ys, method = extra
+            ys = np.asarray(ys, float)
+            if (i, method) in entries:
+                y0, n0 = entries[(i, method)]
+                lower = ys < y0
+                entries[(i, method)] = (np.where(lower, ys, y0), np.where(lower, 1., n0))
+            else:
+                entries[(i, method)] = (ys, np.ones(k))
+        ybar = np.zeros((k, len(leaves))); prec = np.zeros((k, len(leaves)))
+        bvar = np.zeros(k); total = np.zeros(k)
+        for (i, method), (y, n) in entries.items():
+            mean, var = self.methods.bias(method, material, template)
+            w = n / self.methods.noise(method) ** 2
+            ybar[:, i] = (ybar[:, i] * prec[:, i] + (y - mean) * w) / (prec[:, i] + w)
+            prec[:, i] += w
+            bvar += w * var; total += w
+        return ybar, prec, np.divide(bvar, total, out=np.zeros(k), where=total > 0), total
+
+    def _mu_estimate(self, cid, material):
+        """Data-only estimate (mean, variance) of a candidate's hyper-mean on one surface."""
+        ybar, prec, bvar, _ = self._data(cid, self.leaves(cid, material), material)
+        t2 = self.cfg["site_sd_eV"] ** 2 + self.cfg["pathway_sd_eV"] ** 2
+        w = (prec / (1 + t2 * prec))[0]
+        if w.sum() <= 0:
+            return None
+        return float((w * ybar[0]).sum() / w.sum()), float(1 / w.sum() + bvar[0])
+
+    def prior(self, cid, material):
+        """(mean, sd) of a candidate's hyper-mean on one surface before its own data.
+
+        Candidates with the same reaction template share a class mean, learned
+        from the other candidates' results (empirical Bayes), so what one
+        acylating agent showed moves the expectation for the next one.
+        prior_sd_eV is the total spread for an untried molecule, template_sd_eV
+        the part shared by its class. A molecule's own literature prior
+        (spec prior_Ea_eV[material], optional prior_sd_eV) replaces the class mean.
+        """
+        spec = self.candidates[cid]
+        own = (spec.get("prior_Ea_eV") or {}).get(material)
+        s0 = self.cfg["prior_sd_eV"]
+        st = min(max(self.cfg["template_sd_eV"], 1e-6), s0)  # ~0 turns sharing off
+        sc2 = s0 ** 2 - st ** 2
+        if own is not None:
+            return float(own), float(spec.get("prior_sd_eV") or math.sqrt(sc2) or s0)
+        key = (cid, material, spec["template"], len(self.obs), tuple(self.candidates))
+        if key not in self._prior:
+            prec, num = 1 / st ** 2, self.cfg["prior_mean_eV"][material] / st ** 2
+            for other, o_spec in self.candidates.items():
+                if other == cid or o_spec["template"] != spec["template"]:
+                    continue
+                est = self._mu_estimate(other, material)
+                if est is not None:
+                    w = 1 / (sc2 + est[1])
+                    prec += w; num += w * est[0]
+            self._prior[key] = (num / prec, math.sqrt(sc2 + 1 / prec))
+        return self._prior[key]
 
     def _noise(self, cid, n_leaves):
         if cid not in self._z:
@@ -217,9 +293,9 @@ class Belief:
         """Effective per-site barrier samples per material, shape (K, D, sites).
 
         A shared residual-bias draw shifts all of a candidate's data on one
-        surface together. extra = (material, leaf_index, y_values[K], noise_var,
-        bias_var): hypothetical observations for the knowledge gradient, using
-        common random numbers so values are smooth in y.
+        surface together. extra = (material, leaf_index, raw_values[K], method):
+        hypothetical results for the knowledge gradient, using common random
+        numbers so values are smooth in y.
         """
         mats = ("SiO2", "SiNx")
         leaves = {m: self.leaves(cid, m) for m in mats}
@@ -227,21 +303,14 @@ class Belief:
         t2 = self.cfg["site_sd_eV"] ** 2 + self.cfg["pathway_sd_eV"] ** 2
         out = {}
         for m in mats:
-            ybar, prec, bvar, total = self._data(cid, leaves[m], m)
-            ybar, prec = ybar[None], prec[None]
-            if extra and extra[0] == m:
-                _, i, ys, var, b_extra = extra
-                ys = np.asarray(ys, float)
-                ybar = np.repeat(ybar, len(ys), 0); prec = np.repeat(prec, len(ys), 0)
-                ybar[:, i] = (ybar[:, i] * prec[:, i] + ys / var) / (prec[:, i] + 1 / var)
-                prec[:, i] += 1 / var
-                bvar = (bvar * total + b_extra / var) / (total + 1 / var)
-            bias = z[m][2][None, :] * math.sqrt(bvar)                      # (1, D)
+            hypothetical = extra[1:] if extra and extra[0] == m else None
+            ybar, prec, bvar, _ = self._data(cid, leaves[m], m, hypothetical)
+            bias = z[m][2][None, :] * np.sqrt(bvar)[:, None]               # (K, D)
             data = ybar[:, None, :] - bias[:, :, None]                      # (K, D, L)
             w = prec / (1 + t2 * prec)  # 1 / (t2 + 1/prec), zero when unobserved
-            s0 = self.cfg["prior_sd_eV"]
+            mean0, s0 = self.prior(cid, m)
             prec_mu = 1 / s0 ** 2 + w.sum(-1)                               # (K,)
-            mean_mu = (self.cfg["prior_mean_eV"][m] / s0 ** 2 + (w[:, None, :] * data).sum(-1)) / prec_mu[:, None]
+            mean_mu = (mean0 / s0 ** 2 + (w[:, None, :] * data).sum(-1)) / prec_mu[:, None]
             mu = mean_mu + z[m][0][None] / np.sqrt(prec_mu)[:, None]        # (K, D)
             prec_leaf = 1 / t2 + prec
             leaf = ((mu[:, :, None] / t2 + prec[:, None, :] * data) / prec_leaf[:, None, :]
@@ -252,6 +321,18 @@ class Belief:
                                for s in site_order], -1)
             out["leaf_" + m] = leaf
         return out
+
+    def new_molecule_widths(self, spec):
+        """Margin samples (D,) for a molecule not yet in the belief. It has no
+        data, but its prior already carries what its reaction class has shown.
+        Every probe uses the same random numbers, so molecules compare fairly."""
+        probe = "_probe"
+        self.candidates[probe] = spec
+        try:
+            return self.widths(probe)[0]
+        finally:
+            del self.candidates[probe]
+            self._z.pop(probe, None)
 
     def binding(self, cid):
         """P(each leaf is the one that sets the window): the fastest oxide leaf
@@ -362,8 +443,8 @@ class Agent:
                         bmean, bvar = b.methods.bias(method, m, spec["template"])
                         noise2 = b.methods.noise(method) ** 2
                         sig2 = noise2 + bvar
-                        ys = mean + np.sqrt(var + sig2) * q
-                        w = b.widths(cid, (m, i, ys, noise2, bvar)).mean(-1)
+                        ys = bmean + mean + np.sqrt(var + sig2) * q             # raw method output
+                        w = b.widths(cid, (m, i, ys, method)).mean(-1)
                         kg = float(np.mean(np.maximum(w, others)) - max(scores[cid], others))
                         # Decision-relevant uncertainty: candidate in contention x leaf sets the
                         # window x fraction of the leaf's uncertainty this method removes.
@@ -381,17 +462,25 @@ class Agent:
                                            extra={"leaf_sd_eV": math.sqrt(var), "method_sd_eV": math.sqrt(sig2),
                                                   "knowledge_gradient": max(kg, 0.), "relevance": relevance,
                                                   "p_contention": contention[cid], "p_binding_leaf": float(binding[m][i])}))
-        if self.library:
-            spec = self.library[0]
-            probe = Belief(b.sites, {"_new": spec}, b.cfg)
-            w = probe.widths("_new")[0]
+        for spec in self.library:
+            w = b.new_molecule_widths(spec)
+            b.candidates["_probe"] = spec
+            try:
+                prior = {m: round(b.prior("_probe", m)[0], 3) for m in ("SiO2", "SiNx")}
+            finally:
+                del b.candidates["_probe"]
             acts.append(Action("add_molecule", value=float(np.mean(np.maximum(w, best)) - best),
-                               cost=cfg["new_molecule_cost"], extra={"name": spec["name"]}))
+                               cost=cfg["new_molecule_cost"],
+                               extra={"name": spec["name"], "id": spec["id"], "template": spec["template"],
+                                      "prior_mean_eV": prior, "prior_source": "own" if spec.get("prior_Ea_eV")
+                                      else "template results"}))
         return acts
 
     def explain(self, a, previous):
         if a.kind == "add_molecule":
-            return f"add {a.extra['name']}: prior chance to beat the current best justifies its cost"
+            p = a.extra["prior_mean_eV"]
+            return (f"add {a.extra['name']}: expected barriers SiO2 {p['SiO2']:.2f} / SiNx {p['SiNx']:.2f} eV "
+                    f"({a.extra['prior_source']}) give a chance to beat the current best worth its cost")
         reason = []
         if previous and previous.get("failed_here"):
             reason.append(f"retry with orientation {a.orientation} after {previous['failed_here']} failure(s)")
@@ -461,8 +550,9 @@ def run(belief, executor, budget, library=(), methods=("xtb",), cfg=None, log=No
                   "alternatives": [clean({k: getattr(a, k) for k in ("kind", "candidate", "site", "pathway", "method")}
                                          | {"value_per_cost": a.score()}) for a in shortlist[1:4]]}
         if action.kind == "add_molecule":
-            spec = agent.library.pop(0)
-            belief.candidates[spec["id"]] = spec
+            spec = next(s for s in agent.library if s["id"] == action.extra["id"])
+            agent.library.remove(spec)
+            belief.add_candidate(spec)
             spent += action.cost
             record["added"] = spec["name"]
         else:
@@ -525,23 +615,45 @@ class LiveExecutor:
                                  f"{self.artifact_dir}/{spec['id']}_{a.site.replace(':', '_')}_{a.pathway}_{a.method}_{a.orientation}.extxyz",
                                  a.orientation, a.pathway)
             return to_observation(a.candidate, a.site, a.pathway, a.method, r, s["material"], self.config,
-                                  cost=self.cost[a.method]["cost"], source=f"live:{time.time() - start:.0f}s")
+                                  cost=self.cost[a.method]["cost"], source=f"live:{time.time() - start:.0f}s",
+                                  orientation=a.orientation)
         except Exception as exc:
             return Observation(a.candidate, a.site, a.pathway, a.method, "failed", reason=str(exc),
-                               cost=self.cost[a.method]["cost"], source=f"live:{time.time() - start:.0f}s")
+                               cost=self.cost[a.method]["cost"], source=f"live:{time.time() - start:.0f}s",
+                               orientation=a.orientation)
 
 
-def to_observation(candidate, site, pathway, method, attempt, material, config=None, cost=0., source="agent"):
+def to_observation(candidate, site, pathway, method, attempt, material, config=None, cost=0., source="agent",
+                   orientation=None):
     """One NEB attempt as an observation. A barrierless attempt is a successful
     calculation that bounds the barrier (see kinetics.CENSORED_AS); it must not
     count as a method failure. Its reason records the censoring."""
     ea = effective_barrier(attempt, material, config)
     if ea is None:
         return Observation(candidate, site, pathway, method, attempt.get("status", "failed"),
-                           reason=attempt.get("reason") or attempt.get("status"), cost=cost, source=source)
+                           reason=attempt.get("reason") or attempt.get("status"), cost=cost, source=source,
+                           orientation=orientation)
     reason = "barrierless" if attempt.get("status") == "barrierless" else None
     return Observation(candidate, site, pathway, method, "valid", ea, attempt.get("dE_rxn_eV"),
-                       reason, cost, source)
+                       reason, cost, source, orientation)
+
+
+def latest_kinetics(records, finished=()):
+    """One kinetics record per (candidate, site set, method).
+
+    A screen re-run after a code or setting change is stored as a new record
+    (the cache key hashes both) but measures the same barriers; seeding every
+    record would count them twice and overstate confidence. Keeps the record
+    finished last (finished: record ids in completion order), otherwise the
+    last one supplied.
+    """
+    rank = {rid: n for n, rid in enumerate(finished)}
+    out = {}
+    for r in records:
+        key = (r["candidate_id"], r.get("surface_fingerprint") or r.get("sites_source"), r.get("method"))
+        if key not in out or rank.get(r.get("id"), -1) >= rank.get(out[key].get("id"), -1):
+            out[key] = r
+    return list(out.values())
 
 
 def observations_from_kinetics(records, config=None):
@@ -552,7 +664,8 @@ def observations_from_kinetics(records, config=None):
         for site in k["sites"]:
             for a in site.get("attempts", []):
                 out.append(to_observation(k["candidate_id"], site["label"], pathway, k["method"],
-                                          a, site["material"], config, source="kinetics_record"))
+                                          a, site["material"], config, source="kinetics_record",
+                                          orientation=a.get("orientation")))
     return out
 
 

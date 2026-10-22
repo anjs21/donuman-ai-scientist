@@ -1,9 +1,11 @@
 """Equal-budget evaluation of evidence-acquisition policies on synthetic worlds.
 
 Each world hides true barriers (candidate x site x pathway), per-method
-systematic biases that differ by surface, noise, and failure rates. Every
-policy uses the same Belief inference and the same final pick rule; only the
-choice of which calculation to buy differs. This measures decision quality
+systematic biases that differ by surface, noise, and failure rates. A path
+started from a poor orientation reaches a higher barrier; the leaf's true
+barrier is its best orientation. Every policy uses the same Belief inference
+and the same final pick rule; only the choice of which calculation to buy
+differs. This measures decision quality
 (correct pick, regret) and efficiency (cost spent) -- it is a test of the
 agent's strategy, not of any chemistry.
 """
@@ -15,7 +17,7 @@ from .kinetics import PATHWAYS
 WORLD = {"n_candidates": 6, "sites": {"SiO2": 3, "SiNx": 4},
          "bias_sd_eV": {"xtb": 0.20, "mace": 0.30, "dft": 0.03},
          "fail": {"xtb": (0.15, 0.35), "mace": (0.10, 0.30), "dft": (0.10, 0.20)},
-         "unrunnable_fraction": 0.0}
+         "unrunnable_fraction": 0.0, "orientations": 4, "orientation_sd_eV": 0.15}
 
 
 def make_world(seed, cfg=None, world=None):
@@ -40,7 +42,13 @@ def make_world(seed, cfg=None, world=None):
     # Cheap-method errors depend on the chemistry: bias per method, surface and template.
     bias = {(meth, m, t): rng.normal(0, sd) for meth, sd in world["bias_sd_eV"].items()
             for m in ("SiO2", "SiNx") for t in PATHWAYS}
-    return {"sites": sites, "candidates": candidates, "truth": truth, "bias": bias,
+    # Excess barrier per starting orientation; one orientation per leaf finds the true path.
+    excess = {}
+    for key in truth:
+        e = np.abs(rng.normal(0, world["orientation_sd_eV"], world["orientations"]))
+        e[rng.integers(world["orientations"])] = 0.
+        excess[key] = e
+    return {"sites": sites, "candidates": candidates, "truth": truth, "bias": bias, "excess": excess,
             "fail": world["fail"], "seed": seed}
 
 
@@ -63,13 +71,17 @@ class SyntheticExecutor:
         index = PATHWAYS[w["candidates"][a.candidate]["template"]].index(a.pathway)
         cost = self.cfg["methods"][a.method]["cost"]
         if self.rng.random() < w["fail"][a.method][index]:
-            return Observation(a.candidate, a.site, a.pathway, a.method, "failed", reason="synthetic_failure", cost=cost)
-        truth = w["truth"][(a.candidate, a.site, a.pathway)]
+            return Observation(a.candidate, a.site, a.pathway, a.method, "failed", reason="synthetic_failure",
+                               cost=cost, orientation=a.orientation)
+        key = (a.candidate, a.site, a.pathway)
+        truth = w["truth"][key]
+        excess = w["excess"][key]
         bias = w["bias"][(a.method, material, w["candidates"][a.candidate]["template"])]
         sd = self.cfg["methods"][a.method]["sigma_barrier_eV"]
-        y = truth + bias + self.rng.normal(0, 0.5 * sd)
+        y = truth + excess[a.orientation % len(excess)] + bias + self.rng.normal(0, 0.5 * sd)
         r = truth - 0.6 + 0.5 * bias + self.rng.normal(0, 0.5 * sd)
-        return Observation(a.candidate, a.site, a.pathway, a.method, "valid", float(y), float(r), cost=cost)
+        return Observation(a.candidate, a.site, a.pathway, a.method, "valid", float(y), float(r), cost=cost,
+                           orientation=a.orientation)
 
 
 # --- baseline policies: same inference, different evidence choice ---------------
@@ -161,6 +173,9 @@ def run_policy(name, world, budget, cfg, methods, tolerance=0.1):
             a = BASELINES[name](belief, budget - spent, state, cfg)
             if a is None or a.cost > budget - spent:
                 break
+            # Like the agent, a repeat on the same key starts from the next orientation.
+            a.orientation = sum(1 for o in belief.obs
+                                if (o.candidate, o.site, o.pathway, o.method) == (a.candidate, a.site, a.pathway, a.method))
             o = executor.execute(a, belief); belief.add(o)
             spent += o.cost; n_fail += o.status != "valid"; n_actions += 1
     scores = belief.scores()

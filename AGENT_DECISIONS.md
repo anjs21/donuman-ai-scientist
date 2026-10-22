@@ -12,6 +12,9 @@ Code: `warden/decide.py` (agent), `warden/benchmark.py` (evaluation),
 | Component | Implementation |
 |---|---|
 | Surface-specific chemistry | Hierarchical Gaussian belief over every barrier: candidate × amorphous site × pathway. A site's effective barrier is the minimum over pathways, so unexplored pathways keep real uncertainty. `site_robustness` bootstraps the site set to test whether the pick survives different sites. |
+| Orientations | Each starting orientation is a different path to the same site, so a leaf takes the fastest orientation per method (as `kinetics.select_best`); only repeats of one orientation are averaged. A hypothetical new orientation in the knowledge gradient can only lower a leaf. Observations stored before orientations were recorded count as one orientation. |
+| Learning across molecules | Candidates with the same reaction template share a class mean per surface, estimated from the other candidates' results (empirical Bayes; `template_sd_eV` of the total `prior_sd_eV` is shared). Results on one acylating agent therefore change the expectation for the next one, and for unobserved sites of existing ones. Every library molecule is valued, not only the first; a library entry's own `prior_Ea_eV` (literature-backed, checked by `lit-import`) replaces the class mean. |
+| Seeding | Only the latest kinetics record per (candidate, site set, method) seeds the belief; re-runs after code or setting changes would otherwise count the same barriers twice. |
 | Method reliability | Per-method noise **and** systematic bias per (surface, template), learned separately for barriers and reaction energies from results paired with the reference method. Cheap results are bias-corrected; residual bias does not average away, so escalation is valued only when cheap results cannot separate the leaders. |
 | Agent decisions | Each step values every action by knowledge gradient on the dose-window feasibility margin + decision-relevant uncertainty (P(top two) × P(leaf sets the window) × uncertainty this method can remove), × learned success probability (empirical-Bayes per method/template/pathway/site type, decaying on retries), ÷ cost. Stops at P(correct selection) ≥ 0.95 or when nothing is worth its cost. Every decision is logged with its reason and alternatives. |
 | Process prediction | `posterior_design` runs the uncertainty-aware process design on posterior barriers, then `stress_test` sweeps cap loss, incomplete re-passivation (theta_max), slower re-passivation, unwanted oxide inhibition and oxide-cap persistence. |
@@ -64,6 +67,10 @@ transition-state method is the highest-value addition.
 
 - Gaussian belief with stated priors; leaf data enter the hyper-mean slightly
   twice (standard empirical-Bayes approximation).
+- Taking the lowest orientation is biased low by the noise of the method; the
+  class mean is shrunk toward `prior_mean_eV` with few molecules per class.
+- The benchmark table below predates the orientation and class-sharing changes;
+  synthetic worlds now include orientation effects (`orientation_sd_eV`).
 - Bias is shared per (method, surface, template); cross-candidate bias
   correlation is ignored, which makes P(correct selection) conservative.
 - No DFT backend is wired for live runs; `dft` exists in the benchmark and as

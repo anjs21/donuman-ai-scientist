@@ -261,6 +261,21 @@ def quote_in(quote, text):
 
 # --- literature-backed candidates ------------------------------------------------
 
+def prior_check(p):
+    """Optional own prior for `decide`: barriers (eV) a source reports or implies
+    for this molecule, replacing what its reaction class has shown so far."""
+    prior = p.get("prior_Ea_eV")
+    if prior is None:
+        return
+    if not isinstance(prior, dict) or not prior or set(prior) - {GROWTH, NON_GROWTH}:
+        raise ValueError("prior_Ea_eV must map SiO2 and/or SiNx to a barrier in eV")
+    for value in [*prior.values(), p.get("prior_sd_eV", 0.1)]:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 5:
+            raise ValueError("prior_Ea_eV values and prior_sd_eV must be numbers between 0 and 5 eV")
+    if p.get("prior_sd_eV") == 0:
+        raise ValueError("prior_sd_eV must be positive")
+
+
 def import_candidates(proposals, evidence, known_smiles=(), validate=None):
     """Validate proposals and order them for `decide --library`.
 
@@ -276,6 +291,7 @@ def import_candidates(proposals, evidence, known_smiles=(), validate=None):
             if status not in ("tested", "analog"):
                 raise ValueError("literature_status must be 'tested' (molecule itself studied in the source) "
                                  "or 'analog' (extrapolated from a related molecule)")
+            prior_check(p)
             spec = validate(p, evidence, require_evidence=True)
             if spec["canonical_smiles"] in seen:
                 raise ValueError("already computed or proposed")
