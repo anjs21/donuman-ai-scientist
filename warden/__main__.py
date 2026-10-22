@@ -64,6 +64,7 @@ def screen_command(args):
             if calc is None:
                 calc = calculator(settings)
             store.event('calculation_started', {'id': key, 'candidate_id': cid})
+            print('Screening:', candidate['name'], '| fidelity:', args.fidelity, flush=True)
             try:
                 result = screen(candidate, report, atoms, settings, calc,
                                 Path(args.db).resolve().parent / 'geometries' / key)
@@ -72,6 +73,7 @@ def screen_command(args):
                           'reason': str(exc), 'dE_GS': None, 'dE_NGS': None}
             result.update(id=key, fidelity=args.fidelity, role=candidate['role'], provenance=signature)
             store.put('result', key, result)
+            print('Result:', candidate['name'], result['status'], flush=True)
             store.event('calculation_finished', {'id': key, 'status': result['status']})
             export(store, Path(args.db).resolve().parent)
         export(store, Path(args.db).resolve().parent)
@@ -300,7 +302,8 @@ def main(argv=None):
             from .surfaces import load_manifest
             report, _ = load_manifest(args.manifest, require_valid=False)
             write_json(args.out, report)
-            print('Surface admission:', 'PASS' if report['valid'] else 'FAIL', '|', args.out)
+            print('Surface screening admission:', 'PASS' if report['valid'] else 'FAIL', '|', args.out)
+            print('Scope:', report['admission_scope'], '| bulk density validated:', report['bulk_density_validated'])
             return 0 if report['valid'] else 2
         if args.command == 'validate-candidates':
             from .chemistry import validate_candidate, geometries

@@ -1,5 +1,11 @@
 # WARDEN v2 — scripts and run order
 
+**Reviewed relaxation update:** for the uploaded run 49543552, follow
+[SURFACE_SCREENING_UPDATE.md](SURFACE_SCREENING_UPDATE.md) first. It introduces
+an explicit provisional finite-slab screening profile. The original strict
+density-comparison instructions below are retained as historical behavior;
+they must not be interpreted as validation of thin slabs against a bulk target.
+
 This bundle updates `anjs21/donuman-ai-scientist` at commit
 `54cb64c5a25a4c624e183253b6514af24d859020`. Run commands from the extracted
 `warden_updated` folder. The supported entrypoint is `python -m warden`.

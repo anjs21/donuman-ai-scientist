@@ -34,7 +34,8 @@ def export(store, destination):
     write_json(destination / "report.json", result)
     lines = ["# WARDEN v2 campaign report", "",
              "**Screening only. No experimental AS-ALD success is claimed.**",
-             "Synthetic demo and unverified historical results are excluded from the real ranking.", "",
+             "Synthetic demo and unverified historical results are excluded from the real ranking.",
+             "Surface admission permits numerical screening only; it does not certify bulk density or chemical accuracy.", "",
              "| Candidate | Mode | Status | GS eV | NGS eV | Proxy pass |",
              "|---|---|---|---:|---:|---|"]
     for r in results:

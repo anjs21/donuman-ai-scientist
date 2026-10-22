@@ -42,13 +42,13 @@ def calculation_key(candidate, surface_report, config):
     model = Path(config["model_path"]).expanduser().resolve()
     if not model.is_file():
         raise ValueError("Missing MACE model checkpoint")
-    from . import chemistry, metrics
+    from . import chemistry, metrics, surfaces, slab_validation
     import selectivity_model
     import surface_builder, structure_validation
-    signature = {"candidate": {k: candidate[k] for k in ("smiles", "template", "role")},
+    signature = {"surface_admission": surface_report, "candidate": {k: candidate[k] for k in ("smiles", "template", "role")},
                  "surface_manifest": surface_report["fingerprint"],
                  "config": config, "model_sha256": file_hash(model),
-                 "code": [file_hash(m.__file__) for m in (chemistry, metrics, selectivity_model, surface_builder, structure_validation)],
+                 "code": [file_hash(m.__file__) for m in (chemistry, metrics, surfaces, slab_validation, selectivity_model, surface_builder, structure_validation)],
                  "engine": file_hash(__file__),
                  "versions": {p: importlib.metadata.version(p) for p in ("ase", "rdkit", "numpy", "mace-torch")}}
     return digest(signature), signature
@@ -172,6 +172,8 @@ def screen(candidate, surface_report, atoms_by_id, config, calc, artifact_dir):
             record = {**representative, "surface_id": surface["id"], "material": surface["material"],
                       "attempts": [], "status": "failed", "energy_eV": None}
             site = representative["site"]
+            print(f"  {candidate['name']}: {surface['id']} site={site} "
+                  f"type={representative['site_type']} face={representative['face']}", flush=True)
             try:
                 bare = slab.copy()
                 freeze_region(bare, slab.positions[site], config["active_radius_A"], len(bare))
