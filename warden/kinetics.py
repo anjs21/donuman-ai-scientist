@@ -196,7 +196,7 @@ def endpoints(substrate, site, normal, spec, config, orientation=0, pathway=None
         toward = substrate.positions[h] - substrate.positions[site]
         toward -= (toward @ normal) * normal
         toward = toward / np.linalg.norm(toward) if np.linalg.norm(toward) > 1e-3 else _perpendicular(normal)
-        tilt = np.radians(60 + 15 * orientation)
+        tilt = np.radians(60 + 15 * (orientation % config["orientations"]))  # 60-105 deg, same period as spin
         pos = pos @ rotation(pos[leaving], -np.cos(tilt) * normal + np.sin(tilt) * toward).T
     else:
         pos = pos @ rotation(pos[leaving], normal).T @ spin.T

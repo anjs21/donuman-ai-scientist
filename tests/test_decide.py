@@ -227,6 +227,44 @@ def test_benchmark_world_orientations_include_the_true_path():
     assert all(e.min() == 0. and len(e) == 4 for e in w["excess"].values())
 
 
+def test_orientation_choice_skips_tried_ones_and_stops_when_exhausted():
+    b = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+    key = ("a", "g0", "addition", "xtb")
+    for o in (0, 1):
+        b.add(dc.Observation(*key, "valid", 0.5, -0.5, orientation=o))
+    b.add(dc.Observation(*key, "failed", orientation=3))
+    assert b.next_orientation(key, 4) == 2
+    b.add(dc.Observation(*key, "valid", 0.5, -0.5, orientation=6))   # 6 = 2 (mod 4): same path
+    assert b.next_orientation(key, 4) is None
+    acts = dc.Agent(b, ["xtb", "dft"], (), dc.DEFAULTS).actions()
+    offered = {(a.method, a.orientation) for a in acts if (a.candidate, a.site, a.pathway) == key[:3]}
+    assert offered == {("dft", 0)}                     # no xtb repeat of a computed path
+    # Results without a recorded orientation occupy the lowest free orientations.
+    legacy = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+    legacy.add(dc.Observation(*key, "valid", 0.5, -0.5))
+    legacy.add(dc.Observation(*key, "valid", 0.5, -0.5, orientation=0))
+    assert legacy.next_orientation(key, 4) == 2
+
+
+def test_method_error_pairs_only_the_same_orientation():
+    b = dc.Belief(SITES, CANDS, dc.DEFAULTS)
+    b.add(dc.Observation("a", "n0", "addition", "xtb", "valid", 0.9, 0.1, orientation=0))
+    b.add(dc.Observation("a", "n0", "addition", "dft", "valid", 0.4, 0.0, orientation=1))
+    assert b.methods.report() == []                   # different paths: not a method error
+    b.add(dc.Observation("a", "n0", "addition", "dft", "valid", 0.6, 0.0, orientation=0))
+    (row,) = [r for r in b.methods.report() if r["quantity"] == "barrier"]
+    assert row["n_pairs"] == 1 and row["mean_difference_eV"] == pytest.approx(0.3)
+
+
+def test_added_molecule_is_identified_when_logged():
+    """decide_command saves an added molecule from the log callback, before the run ends."""
+    b = separated_belief(gs=(0.05, 0.0), ngs=(0.5, 0.6))
+    seen = []
+    log = lambda record: seen.append((record.get("added_id"), record.get("added_id") in b.candidates))
+    dc.run(b, Never(), dc.DEFAULTS["new_molecule_cost"], [NEW_SILYL], methods=(), cfg=dc.DEFAULTS, log=log)
+    assert seen == [("n_silyl", True)]
+
+
 def test_synthetic_world_truth_is_hidden_and_consistent():
     w = make_world(3)
     assert len(w["candidates"]) == 6 and w["truth"]

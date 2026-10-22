@@ -35,7 +35,8 @@ DEFAULTS = {
     "temperatures": [373., 423., 473., 523.], "practical_dose_s": [0.05, 30.], "occupancy": 1.0,
     "capture_NGS": 0.99, "capture_GS": 0.01,
     "draws": 128, "kg_points": 5, "target_pcs": 0.95, "min_value_per_cost": 1e-4,
-    "new_molecule_cost": 2.0, "relevance_weight": 0.5, "success_prior": [3., 1.], "retry_decay": 0.7, "seed": 0}
+    "new_molecule_cost": 2.0, "relevance_weight": 0.5, "success_prior": [3., 1.], "retry_decay": 0.7, "seed": 0,
+    "orientations": 4}  # distinct starting orientations per leaf (kinetics "orientations")
 
 
 def window_width(ea_gs, ea_ngs, cfg, clip=True):
@@ -186,12 +187,30 @@ class Belief:
         ref = self.cfg["reference_method"]
         for other in self.obs[:-1]:
             if (other.status == "valid" and other.candidate == o.candidate and other.site == o.site
-                    and other.pathway == o.pathway and {other.method, o.method} >= {ref} and other.method != o.method):
+                    and other.pathway == o.pathway and other.orientation == o.orientation
+                    and {other.method, o.method} >= {ref} and other.method != o.method):
+                # Same starting orientation only: different orientations are different
+                # paths, so their difference is not the method's error.
                 cheap, exact = (o, other) if other.method == ref else (other, o)
                 t = spec["template"]
                 self.methods.add(cheap.method, "barrier", site["material"], t, cheap.Ea_eV - exact.Ea_eV)
                 if cheap.dE_rxn_eV is not None and exact.dE_rxn_eV is not None:
                     self.methods.add(cheap.method, "reaction", site["material"], t, cheap.dE_rxn_eV - exact.dE_rxn_eV)
+
+    def next_orientation(self, key, n):
+        """Lowest starting orientation not yet tried on key = (candidate, site,
+        pathway, method), or None when all n have been tried. Orientations repeat
+        with period n in kinetics.endpoints, so a further one would recompute an
+        old path. Results without a recorded orientation occupy the lowest free ones."""
+        tried, unknown = set(), 0
+        for o in self.obs:
+            if (o.candidate, o.site, o.pathway, o.method) == key:
+                if o.orientation is None:
+                    unknown += 1
+                else:
+                    tried.add(o.orientation % n)
+        free = [k for k in range(n) if k not in tried][unknown:]
+        return free[0] if free else None
 
     def _measurements(self, cid, leaves):
         """Per (leaf, method): (value, n) of the lowest-barrier orientation.
@@ -440,6 +459,10 @@ class Agent:
                     mean, var = b.leaf_marginal(cid, m, i)
                     site = b.site(label)
                     for method in self.methods_available:
+                        key = (cid, label, pathway, method)
+                        orientation = b.next_orientation(key, cfg["orientations"])
+                        if orientation is None:
+                            continue
                         bmean, bvar = b.methods.bias(method, m, spec["template"])
                         noise2 = b.methods.noise(method) ** 2
                         sig2 = noise2 + bvar
@@ -453,9 +476,7 @@ class Agent:
                         relevance = (contention[cid] * binding[m][i] * math.sqrt(reducible)
                                      * reducible / (reducible + noise2) * sens * cfg["relevance_weight"])
                         value = max(kg, 0.) + relevance
-                        key = (cid, label, pathway, method)
-                        attempts = sum(1 for o in b.obs if (o.candidate, o.site, o.pathway, o.method) == key)
-                        acts.append(Action("observe", cid, label, pathway, method, attempts,
+                        acts.append(Action("observe", cid, label, pathway, method, orientation,
                                            max(value, 0.), b.failures.p(method, spec["template"], pathway,
                                                                          site["site_type"], key),
                                            cfg["methods"][method]["cost"],
@@ -555,6 +576,7 @@ def run(belief, executor, budget, library=(), methods=("xtb",), cfg=None, log=No
             belief.add_candidate(spec)
             spent += action.cost
             record["added"] = spec["name"]
+            record["added_id"] = spec["id"]
         else:
             o = executor.execute(action, belief)
             spent += o.cost

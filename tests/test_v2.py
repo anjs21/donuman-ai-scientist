@@ -253,3 +253,13 @@ def test_surface_reaction_is_element_balanced(index):
     lhs=Counter(slab.get_chemical_symbols())+Counter(geo['molecule'].get_chemical_symbols())
     rhs=Counter(product.get_chemical_symbols())+Counter(geo['byproduct'].get_chemical_symbols())
     assert lhs==rhs
+
+
+def test_campaign_context_shows_the_most_recent_evidence(tmp_path):
+    from warden.campaign import context
+    store = Store(tmp_path / "e.sqlite")
+    ids = [store.evidence(f"record {i}", {"i": i}) for i in range(15)]
+    store.put("evidence", ids[0], {**store.get("evidence", ids[0])})   # a rewrite counts as recent
+    shown = [e["id"] for e in context(store, {}, [])["evidence"]]
+    assert shown == ids[4:] + [ids[0]]
+    store.close()

@@ -41,6 +41,12 @@ class Store:
                         (datetime.now(timezone.utc).isoformat(), kind, dumps(body)))
         self.db.commit()
 
+    def recent(self, kind, n):
+        """The n records of one kind written last, oldest first (rewrites move a record to the end)."""
+        rows = self.db.execute("SELECT body FROM records WHERE kind=? ORDER BY rowid DESC LIMIT ?",
+                               (kind, n)).fetchall()
+        return [json.loads(r[0]) for r in reversed(rows)]
+
     def events(self, kind):
         """Event bodies of one kind, oldest first."""
         return [json.loads(r[0]) for r in self.db.execute(

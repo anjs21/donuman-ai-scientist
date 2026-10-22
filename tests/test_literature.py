@@ -9,7 +9,7 @@ import pytest
 from warden import kinetics as kin
 from warden.chemistry import validate_candidate
 from warden.common import dumps
-from warden.lit import gather, import_candidates, lit_brief, outcome_class, quote_in
+from warden.lit import findings, gather, import_candidates, lit_brief, outcome_class, quote_in, window_margin
 from warden.literature import read_only
 from warden.store import Store
 
@@ -129,6 +129,26 @@ def test_agent_observations_are_included():
     assert "oxide_too_reactive" in codes and "no_kinetic_contrast" in codes
 
 
+def site(label, material, ea):
+    return {"label": label, "material": material, "site_type": "x", "status": "valid", "Ea_eV": ea,
+            "barrierless": False, "attempts": [{"status": "valid", "Ea_eV": ea}]}
+
+
+def codes(*sites):
+    return {f["code"] for f in findings({"name": "m", "template": "acylation", "sites": list(sites)})[1]}
+
+
+def test_contrast_uses_the_slowest_nitride_site_and_the_dose_window():
+    # Fastest nitride site is faster than the oxide, but the slowest one is not: no selectivity.
+    assert "no_kinetic_contrast" in codes(site("o", "SiO2", 0.6), site("n1", "SiNx", 0.2), site("n2", "SiNx", 0.8))
+    # Contrast, but both barriers too high for any practical dose.
+    assert window_margin(2.0, 1.6) < 0
+    assert "contrast_outside_dose_window" in codes(site("o", "SiO2", 2.0), site("n", "SiNx", 1.6))
+    # Contrast inside the practical dose range.
+    assert window_margin(1.2, 0.6) > 0
+    assert "kinetic_contrast" in codes(site("o", "SiO2", 1.2), site("n", "SiNx", 0.6))
+
+
 # --- import -----------------------------------------------------------------------
 
 def proposals():
@@ -182,6 +202,11 @@ def test_cli_brief_and_import(tmp_path):
     assert r.returncode == 0, r.stderr
     names = [s["name"] for s in json.loads((tmp_path / "library.json").read_text())]
     assert names == ["acetic anhydride", "N-acetylimidazole"]     # acetyl chloride already computed
+    # Re-running on the same proposals (e.g. after fixing one) gives the same library, not an empty one.
+    r = run("lit-import", "--db", str(db), "--candidates", str(tmp_path / "props.json"),
+            "--out", str(tmp_path / "library2.json"))
+    assert r.returncode == 0, r.stderr
+    assert [s["name"] for s in json.loads((tmp_path / "library2.json").read_text())] == names
 
 
 def test_decide_accepts_literature_library(tmp_path):

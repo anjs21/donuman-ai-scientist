@@ -10,7 +10,8 @@ from .planner import SCHEMA
 
 
 def context(store, state, tools):
-    evidence = [{**e, "text": e["text"][:18000]} for e in store.all("evidence")[-12:]]
+    # Most recently stored evidence; all() sorts by id hash, which is not recency.
+    evidence = [{**e, "text": e["text"][:18000]} for e in store.recent("evidence", 12)]
     latest = {}
     for result in store.all("result"):
         key = (result.get("mode"), result["candidate_id"])

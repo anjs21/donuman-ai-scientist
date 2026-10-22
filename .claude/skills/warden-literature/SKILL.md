@@ -77,7 +77,8 @@ have already shown.
    Templates: `acylation` (carbonyl carbon `[C:1]`, leaving atom `:2` = Cl, O or N),
    `silyl_substitution` (`[Si:1]`, leaving Cl or N `:2`), `physisorption` (no maps).
    Neutral, closed-shell, one molecule. Prefer molecules that address the brief's
-   chemical findings (e.g. "oxide_too_reactive" -> milder or more N-H-selective).
+   chemical findings (e.g. "oxide_too_reactive" -> milder or more N-H-selective;
+   "contrast_outside_dose_window" -> same N-H preference, slower kinetics).
 
 5. **Import.**
    `python -m warden lit-import --db <db> --candidates evidence/proposals.json --out evidence/library.json`

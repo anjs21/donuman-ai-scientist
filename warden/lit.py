@@ -54,12 +54,23 @@ def _site_view(site):
             "outcomes": counts}
 
 
+def window_margin(ea_gs_fastest, ea_ngs_slowest):
+    """Dose-window margin (decades, best temperature) under decide's default
+    process settings; negative means no practical dose separates the surfaces."""
+    import numpy as np
+    from .decide import DEFAULTS, window_width
+    return float(window_width(np.array([[ea_gs_fastest]]), np.array([[ea_ngs_slowest]]), DEFAULTS, clip=False)[0])
+
+
 def findings(record):
     """Deterministic statements about one candidate, each tagged chemistry or method."""
     sites = [_site_view(s) for s in record["sites"]]
     out = []
     by = {m: [s for s in sites if s["material"] == m] for m in (GROWTH, NON_GROWTH)}
     fastest = {m: min((s["Ea_eV"] for s in by[m] if s["status"] == "valid"), default=None) for m in by}
+    # Every nitride site must be capped, so the slowest one sets the window (as decide.window_width).
+    slowest_ngs = max((s["Ea_eV"] for s in by[NON_GROWTH] if s["status"] == "valid"), default=None)
+    partial = any(s["status"] != "valid" for s in by[NON_GROWTH])
     gs_fast = [s for s in by[GROWTH] if s["status"] == "valid" and (s["barrierless"] or s["Ea_eV"] <= FAST_EV)]
     gs_fast += [s for s in by[GROWTH] if s["reacts_on_contact"] and s not in gs_fast]
     if gs_fast:
@@ -67,16 +78,24 @@ def findings(record):
                     "text": f"Caps SiO2 silanol with no meaningful barrier ({', '.join(s['label'] for s in gs_fast)}): "
                             "it would block the growth surface during any practical dose.",
                     "direction": "milder or more chemoselective reagent (N-H over O-H)"})
-    if fastest[GROWTH] is not None and fastest[NON_GROWTH] is not None:
-        d = fastest[GROWTH] - fastest[NON_GROWTH]
+    if fastest[GROWTH] is not None and slowest_ngs is not None:
+        d = fastest[GROWTH] - slowest_ngs
+        margin = window_margin(fastest[GROWTH], slowest_ngs)
+        scope = " (resolved nitride sites only)" if partial else ""
         if d <= 0:
             out.append({"kind": "chemistry", "code": "no_kinetic_contrast",
-                        "text": f"Fastest oxide path is not slower than the fastest nitride path "
+                        "text": f"Fastest oxide path is not slower than the slowest nitride site{scope} "
                                 f"(dEa {d:+.2f} eV): no kinetic selectivity in this model.",
                         "direction": "different reaction class or leaving group"})
+        elif margin <= 0:
+            out.append({"kind": "chemistry", "code": "contrast_outside_dose_window",
+                        "text": f"Oxide slower than the slowest nitride site by {d:.2f} eV{scope}, but no practical "
+                                f"dose caps the nitride before the oxide (window misses by {-margin:.1f} decades).",
+                        "direction": "keep the N-H preference, shift both barriers into the practical band"})
         else:
             out.append({"kind": "chemistry", "code": "kinetic_contrast",
-                        "text": f"Oxide path slower than nitride path by {d:.2f} eV in this model.",
+                        "text": f"Oxide slower than the slowest nitride site by {d:.2f} eV{scope}; "
+                                f"practical dose window {margin:.1f} decades in this model.",
                         "direction": "look for experimental confirmation and process conditions"})
     for m in (GROWTH, NON_GROWTH):
         other = NON_GROWTH if m == GROWTH else GROWTH
@@ -105,6 +124,10 @@ QUESTION_TEMPLATES = {
     "no_kinetic_contrast": [
         "area-selective deposition inhibitor SiO2 growth on SiO2 not on SiN",
         "surface functionalization selectivity silicon nitride versus silicon oxide",
+    ],
+    "contrast_outside_dose_window": [
+        "milder {reaction} reagent with the same selectivity for amines over alcohols",
+        "{name} analogs with slower {reaction} kinetics for vapor-phase surface modification",
     ],
     "kinetic_contrast": [
         "{name} reaction with silicon nitride surface amine groups",

@@ -61,8 +61,9 @@ def lit_import_command(args):
     store = Store(args.db)
     try:
         evidence = {e['id']: e for e in store.all('evidence')}
+        # Only molecules already in the screen are excluded. Earlier imports are not:
+        # re-running lit-import on the same proposals must give the same library.
         known = {r.get('canonical_smiles') for r in store.all('candidate')}
-        known |= {r.get('canonical_smiles') for r in store.all('literature_candidate')}
         from .chemistry import validate_candidate
         for k in store.all('kinetics'):
             try:
@@ -232,6 +233,8 @@ def decide_command(args):
     from .chemistry import validate_candidate
     config = configuration(args.config)
     cfg = {**dc.DEFAULTS, **config.get('decide', {})}
+    # The agent must not ask for more orientations than kinetics.endpoints distinguishes.
+    cfg['orientations'] = {**kin.DEFAULTS, **config.get('kinetics', {})}['orientations']
     store = Store(args.db)
     try:
         if args.sites == 'manifest':
@@ -281,6 +284,9 @@ def decide_command(args):
 
             def log(record):
                 store.event('decision', record)
+                if record.get('added_id'):
+                    # Save now: a killed job must not orphan this molecule's observations.
+                    store.put('candidate', record['added_id'], belief.candidates[record['added_id']])
                 if record.get('result'):
                     store.put('observation', digest(record['result'] | {'step': record['step']}), record['result'])
                 print(record['step'], record['action']['kind'], record['action'].get('site'),
