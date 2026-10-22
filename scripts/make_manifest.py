@@ -21,5 +21,5 @@ for material in ('SiO2','SiNx'):
                      'checkpoint_sha256':sha, 'build_report':str(root/'build_report.txt'),
                      'note':'Generated structures; not admitted until validate-surfaces succeeds.'}})
 out.parent.mkdir(parents=True,exist_ok=True)
-out.write_text(json.dumps({'surfaces':rows},indent=2)+'\n')
+out.write_text(json.dumps({'surfaces':rows},indent=2)+'\n', encoding='utf-8')
 print(out)

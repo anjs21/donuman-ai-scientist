@@ -5,7 +5,9 @@ bridge such as mcp-remote. Only explicitly allowlisted read tools are callable.
 """
 import asyncio
 from contextlib import AsyncExitStack
+import json
 import os
+import re
 import jsonschema
 from .common import dumps
 
@@ -50,6 +52,35 @@ async def request(config, tool=None, arguments=None):
         if result.isError:
             raise RuntimeError("MCP returned a tool error: " + dumps(result.model_dump(mode="json"))[:2000])
         return result.model_dump(mode="json")
+
+
+DOI = re.compile(r"\b10\.\d{4,9}/[^\s\"'<>,;)\]}]+", re.IGNORECASE)
+
+
+def result_text(result):
+    """Plain text of an MCP tool result.
+
+    Quotes must match the source verbatim, so evidence is stored as the text
+    the tool returned, not as a JSON dump with escaped characters.
+    """
+    parts = []
+    for item in (result or {}).get("content") or []:
+        if item.get("type") == "text" and item.get("text"):
+            text = item["text"]
+            try:
+                # JSON payloads escape non-ASCII ("‘"); decode so quotes match what a reader sees.
+                text = json.dumps(json.loads(text), indent=1, ensure_ascii=False)
+            except ValueError:
+                pass
+            parts.append(text)
+    structured = (result or {}).get("structuredContent")
+    if not parts and structured is not None:
+        parts.append(json.dumps(structured, indent=1, ensure_ascii=False))
+    return "\n".join(parts) if parts else dumps(result)
+
+
+def dois(text):
+    return sorted({d.rstrip(".").lower() for d in DOI.findall(text or "")})
 
 
 class Bond:

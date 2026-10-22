@@ -30,6 +30,8 @@ def export(store, destination):
               "candidates": list(candidates.values()), "evidence": store.all("evidence"),
               "historical": store.all("historical"),
               "diagnoses": diagnose(results + store.all("historical")), "campaign": store.get("state", "campaign"),
+              "hypotheses": store.all("hypothesis"), "notebook": store.recent("notebook", 10 ** 6)[::-1],
+              "papers": store.all("paper"), "repair": store.get("decision", "latest"),
               "events": events}
     write_json(destination / "report.json", result)
     lines = ["# WARDEN v2 campaign report", "",
@@ -41,10 +43,21 @@ def export(store, destination):
         name = candidates.get(r["candidate_id"], {}).get("name", r["candidate_id"])
         metrics = r.get("metrics") or {}
         lines.append(f"| {name} | {r.get('mode')} | {r.get('status')} | {r.get('dE_GS')} | {r.get('dE_NGS')} | {metrics.get('model_pass', False)} |")
+    if result["hypotheses"]:
+        lines += ["", "## Hypotheses (scored by code against screening surrogates)", "",
+                  "| Candidate | Predicted | Status | Computed records |", "|---|---|---|---:|"]
+        for h in result["hypotheses"]:
+            lines.append(f"| {h['name']} | {h['predicted_direction']} | {h['status']} | {len(h['evidence'])} |")
+    if result["notebook"]:
+        lines += ["", "## Notebook", ""]
+        lines += [f"- step {e.get('step')} [{e['source']}]: {e['text']}" for e in result["notebook"]]
+    if result["papers"]:
+        lines += ["", f"## Papers retrieved ({len(result['papers'])})", ""]
+        lines += [f"- https://doi.org/{p['doi']} (evidence {p['evidence_id']})" for p in result["papers"]]
     lines += ["", "## Trace", ""]
     for e in events:
         lines.append(f"- {e['seq']}: **{e['kind']}** — {str(e['body'])[:1500]}")
     lines += ["", "All calculation attempts, geometry paths, configuration hashes, source evidence, "
               "and critic decisions are available in report.json and the SQLite database."]
-    (destination / "report.md").write_text("\n".join(lines) + "\n")
+    (destination / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return result

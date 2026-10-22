@@ -1,0 +1,113 @@
+[
+  {
+    "name": "propanoyl chloride",
+    "smiles": "CC[C:1](=O)[Cl:2]",
+    "template": "acylation",
+    "role": "inhibitor",
+    "predicted_direction": "prefers_SiNx",
+    "computable": true,
+    "hypothesis": "Like the acetyl chloride family, amine acylation on SiNx outpaces silanol esterification; the literature shows it does react with SiO2 silanols at 230 C, so the selective window, if any, is kinetic and temperature-limited.",
+    "falsification": "Computed Ea(SiO2) - Ea(SiNx) <= 0, or no practical dose window at 373-523 K.",
+    "literature": [
+      {
+        "doi": "10.1021/acs.langmuir.8b02449",
+        "title": "Gas Phase Organic Functionalization of SiO2 with Propanoyl Chloride",
+        "source": "Valency (pubmed)",
+        "quote": "At 230 °C, C2H5COCl reacts with isolated surface -SiOH groups to form the expected ester linkage."
+      },
+      {
+        "doi": "10.26434/chemrxiv.15008158",
+        "title": "An experiment-calibrated in-silico AI co-scientist discovers chemoselective silicon-nitride passivation for area-selective SiO2 atomic layer deposition",
+        "source": "Valency (chemrxiv)",
+        "quote": "We hypothesize that a smallmolecule electrophilic inhibitor chemoselectively acylates SiN surface amines"
+      }
+    ]
+  },
+  {
+    "name": "BDMADMS",
+    "smiles": "C[Si:1](C)(N(C)C)[N:2](C)C",
+    "template": "silyl_substitution",
+    "role": "inhibitor",
+    "predicted_direction": "prefers_SiO2",
+    "computable": true,
+    "hypothesis": "Bis(dimethylamino)dimethylsilane, an aminosilane used to functionalize SiO2 with DMATMS, should share DMATMS's oxide preference (a wrong-direction reference for SiNx blocking).",
+    "falsification": "Computed Ea(SiO2) - Ea(SiNx) > 0 (faster capping of the nitride).",
+    "literature": [
+      {
+        "doi": "10.1021/acs.langmuir.1c02216",
+        "title": "Functionalization of the SiO2 Surface with Aminosilanes to Enable Area-Selective Atomic Layer Deposition of Al2O3",
+        "source": "Valency (pubmed)",
+        "quote": "The SiO2 surface was prefunctionalized with bis(dimethylamino)dimethylsilane (BDMADMS) and (N,N-dimethylamino)trimethylsilane (DMATMS) through solution and the vapor phase."
+      }
+    ]
+  },
+  {
+    "name": "pivaldehyde",
+    "smiles": "CC(C)(C)[CH:1]=[O:2]",
+    "template": "carbonyl_addition",
+    "role": "inhibitor",
+    "predicted_direction": "prefers_SiNx",
+    "computable": true,
+    "hypothesis": "A branched aliphatic aldehyde binds SiNx -NH2 selectively over SiO2 -OH. The abstract does not name the aldehyde; pivaldehyde is the simplest structure with the -C(CH3)3 group it reports.",
+    "falsification": "Comparable addition barrier or energy at SiO2 silanols.",
+    "literature": [
+      {
+        "doi": "10.1021/acs.langmuir.1c00212",
+        "title": "Selective Gas-Phase Functionalization of SiO2 and SiNx Surfaces with Hydrocarbons",
+        "source": "Valency (pubmed)",
+        "quote": "We demonstrate that aldehydes selectively attach to SiNx over SiO2 surfaces, and for the specific branched aliphatic aldehyde used in this work, almost no reaction was detected with the SiO2 surface."
+      },
+      {
+        "doi": "10.1088/0953-8984/28/9/094014",
+        "title": "Surface etching, chemical modification and characterization of silicon nitride and silicon oxide--selective functionalization of Si3N4 and SiO2",
+        "source": "Valency (pubmed)",
+        "quote": "first reacting the -NH2 groups on the etched nitride surface with aldehyde molecules, which do not react with the Si-OH sites on a SiO2 surface"
+      }
+    ],
+    "mechanism_note": "carbonyl_addition: Si-NH2/Si-OH adds across C=O (hemiaminal/hemiacetal); the later dehydration to the imine reported in the literature is not modelled."
+  },
+  {
+    "name": "glutaraldehyde",
+    "smiles": "O=CCCC[CH:1]=[O:2]",
+    "template": "carbonyl_addition",
+    "role": "inhibitor",
+    "predicted_direction": "prefers_SiNx",
+    "computable": true,
+    "hypothesis": "Dialdehyde attachment is selective for silicon nitride over silicon oxide.",
+    "falsification": "Comparable reaction at SiO2 silanols.",
+    "literature": [
+      {
+        "doi": "10.1016/j.bios.2009.10.048",
+        "title": "Selective chemical modification of silicon nitride/silicon oxide nanostructures to develop label-free biosensors",
+        "source": "Valency (pubmed)",
+        "quote": "the use of glutaraldehyde to selectively immobilize biomolecules only on the silicon nitride part of the chip surface was the most effective"
+      }
+    ],
+    "mechanism_note": "carbonyl_addition: Si-NH2/Si-OH adds across C=O (hemiaminal/hemiacetal); the later dehydration to the imine reported in the literature is not modelled."
+  },
+  {
+    "name": "N-methyl-aza-2,2,4-trimethylsilacyclopentane",
+    "smiles": "CN1CC(C)C[Si]1(C)C",
+    "template": "silyl_ring_opening",
+    "role": "inhibitor",
+    "predicted_direction": "prefers_SiO2",
+    "computable": false,
+    "status": "mechanism_not_implemented: ring-opening Si-N cleavage keeps one fragment (no byproduct), which the substitution template rejects.",
+    "hypothesis": "Cyclic azasilanes graft on SiO2 silanols in preference to SiNx amines: a literature reference for the wrong direction.",
+    "falsification": "Faster grafting on SiNx than on SiO2.",
+    "literature": [
+      {
+        "doi": "10.1021/acs.langmuir.1c00212",
+        "title": "Selective Gas-Phase Functionalization of SiO2 and SiNx Surfaces with Hydrocarbons",
+        "source": "Valency (pubmed)",
+        "quote": "cyclic azasilanes preferentially react with an -OH-terminated SiO2 surface over a -NHx-terminated SiNx surface with an attachment selectivity of ∼5.4"
+      },
+      {
+        "doi": "10.1021/acs.langmuir.6b04415",
+        "title": "Byproduct-Free Route to Aminosiloxane Monolayers on Silicon/Silicon Dioxide",
+        "source": "Valency (pubmed)",
+        "quote": "The chemisorption of N-methyl-aza-2,2,4-trimethylsilacyclopentane from either the solution or the vapor phase produces monolayer films on silicon (oxide) substrates."
+      }
+    ]
+  }
+]

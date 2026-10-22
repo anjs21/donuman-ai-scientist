@@ -126,7 +126,7 @@ def main():
     calc = calculator(settings)
     # No free retained fragments: those are not gas references in this reaction.
     for filename in ('examples/seeds-v2.json', 'examples/precursors-v2.json'):
-        for raw in json.loads(Path(filename).read_text()):
+        for raw in json.loads(Path(filename).read_text(encoding="utf-8")):
             candidate = validate_candidate(raw)
             geo = geometries(candidate, 1, 42)[0]
             for part in ('molecule', 'byproduct'):

@@ -24,13 +24,17 @@
   "llm": {
     "host": "http://localhost:11434",
     "model": "qwen2.5:7b",
-    "timeout_s": 180
+    "timeout_s": 180,
+    "num_ctx": 16384
   },
   "campaign": {
     "max_steps": 10,
     "max_candidates": 6,
     "max_searches": 3,
     "max_refinements": 2,
+    "max_repairs": 2,
+    "repair_budget": 6.0,
+    "max_analog_calls": 3,
     "worker_timeout_s": 1800
   }
 }

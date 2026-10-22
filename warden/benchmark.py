@@ -38,8 +38,10 @@ def make_world(seed, cfg=None, world=None):
             for p in PATHWAYS[template]:
                 truth[(cid, s["label"], p)] = base + rng.normal(0, cfg["pathway_sd_eV"])
     # Cheap-method errors depend on the chemistry: bias per method, surface and template.
+    # Only templates present in this world, so adding a template elsewhere does not reshuffle worlds.
+    templates = sorted({c["template"] for c in candidates.values()})
     bias = {(meth, m, t): rng.normal(0, sd) for meth, sd in world["bias_sd_eV"].items()
-            for m in ("SiO2", "SiNx") for t in PATHWAYS}
+            for m in ("SiO2", "SiNx") for t in templates}
     return {"sites": sites, "candidates": candidates, "truth": truth, "bias": bias,
             "fail": world["fail"], "seed": seed}
 
