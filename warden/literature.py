@@ -1,0 +1,125 @@
+"""BOND MCP adapter. Discover schemas; never invent a provider tool name.
+
+Use streamable HTTP with an existing bearer token, or an OAuth-capable stdio
+bridge such as mcp-remote. Only explicitly allowlisted read tools are callable.
+"""
+import asyncio
+from contextlib import AsyncExitStack
+import json
+import os
+import re
+import jsonschema
+from .common import dumps
+
+
+def check_mcp_version():
+    """The adapter uses the mcp 1.x client API; 2.x renamed and reworked it."""
+    from importlib.metadata import version
+    found = version("mcp")
+    if found.split(".")[0] != "1":
+        raise RuntimeError(f"WARDEN's BOND adapter needs mcp 1.x (requirements-v2.txt pins mcp==1.26.0); "
+                           f"found mcp {found}. Run: python -m pip install -r requirements-v3.txt")
+
+
+async def request(config, tool=None, arguments=None):
+    check_mcp_version()
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    from mcp.client.streamable_http import streamablehttp_client
+    async with AsyncExitStack() as stack:
+        if config.get("transport") == "stdio":
+            streams = await stack.enter_async_context(stdio_client(StdioServerParameters(
+                command=config["command"], args=config.get("args", []))))
+        elif config.get("transport") == "streamable_http":
+            headers = {}
+            if config.get("token_env"):
+                token = os.environ.get(config["token_env"])
+                if not token:
+                    raise ValueError("BOND token environment variable is not set")
+                headers["Authorization"] = "Bearer " + token
+            streams = await stack.enter_async_context(streamablehttp_client(
+                config["url"], headers=headers, timeout=30, sse_read_timeout=120))
+        else:
+            raise ValueError("MCP transport must be stdio or streamable_http")
+        session = await stack.enter_async_context(ClientSession(streams[0], streams[1]))
+        await session.initialize()
+        inventory, cursor = [], None
+        for _ in range(20):
+            page = await session.list_tools(cursor=cursor)
+            inventory.extend(t.model_dump(mode="json") for t in page.tools)
+            cursor = page.nextCursor
+            if not cursor:
+                break
+        if tool is None:
+            return inventory
+        if tool not in config.get("allowed_tools", []):
+            raise ValueError("MCP tool is not in the explicit read-only allowlist")
+        if not read_only(tool):
+            raise ValueError(f"MCP tool {tool!r} looks like it writes or sends data; refused even if allowlisted")
+        definition = next((t for t in inventory if t["name"] == tool), None)
+        if definition is None:
+            raise ValueError("Configured MCP tool is absent from the live inventory")
+        jsonschema.validate(arguments or {}, definition["inputSchema"])
+        result = await session.call_tool(tool, arguments or {})
+        if result.isError:
+            raise RuntimeError("MCP returned a tool error: " + dumps(result.model_dump(mode="json"))[:2000])
+        return result.model_dump(mode="json")
+
+
+# Verbs that send, change or delete data. Valency's submit_feedback is one; the
+# research tools (search_*, semantic_search_*, get_*, find_*, export_*) are reads.
+WRITE_VERBS = ("submit", "send", "post", "create", "update", "delete", "remove", "write",
+               "publish", "upload", "set", "add", "edit", "purchase", "invite")
+# Read-only literature tools named in valency-oss/valency-connectors (rules/valency.md,
+# skills/). The live inventory from `bond-tools` remains the authority on names and schemas.
+VALENCY_READ_TOOLS = ("semantic_search_papers", "search_by_abstract", "search_by_title",
+                      "get_paper_by_id", "find_similar_papers", "get_citing_papers")
+
+
+def read_only(name):
+    base = name.rsplit("__", 1)[-1].lower()
+    return not any(base == v or base.startswith(v + "_") for v in WRITE_VERBS)
+
+DOI = re.compile(r"\b10\.\d{4,9}/[^\s\"'<>,;)\]}]+", re.IGNORECASE)
+
+
+def result_text(result):
+    """Plain text of an MCP tool result.
+
+    Quotes must match the source verbatim, so evidence is stored as the text
+    the tool returned, not as a JSON dump with escaped characters.
+    """
+    parts = []
+    for item in (result or {}).get("content") or []:
+        if item.get("type") == "text" and item.get("text"):
+            text = item["text"]
+            try:
+                # JSON payloads escape non-ASCII ("‘"); decode so quotes match what a reader sees.
+                text = json.dumps(json.loads(text), indent=1, ensure_ascii=False)
+            except ValueError:
+                pass
+            parts.append(text)
+    structured = (result or {}).get("structuredContent")
+    if not parts and structured is not None:
+        parts.append(json.dumps(structured, indent=1, ensure_ascii=False))
+    return "\n".join(parts) if parts else dumps(result)
+
+
+def dois(text):
+    return sorted({d.rstrip(".").lower() for d in DOI.findall(text or "")})
+
+
+class Bond:
+    def __init__(self, config):
+        self.config = config
+
+    def tools(self):
+        return asyncio.run(request(self.config))
+
+    def call(self, name, args):
+        # Refuse before connecting, so the reason is not buried in an async error group.
+        if name not in self.config.get("allowed_tools", []):
+            raise ValueError(f"MCP tool {name!r} is not in the explicit read-only allowlist")
+        if not read_only(name):
+            raise ValueError(f"MCP tool {name!r} looks like it writes or sends data; refused even if allowlisted")
+        return asyncio.run(request(self.config, name, args))

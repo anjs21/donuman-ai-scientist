@@ -1,0 +1,285 @@
+"""Regression tests for acylation, barriers, process design and control gating."""
+from collections import Counter
+from dataclasses import replace
+from pathlib import Path
+import importlib.util
+import numpy as np
+import pytest
+from ase.io import read
+from warden.chemistry import validate_candidate
+from warden import kinetics as kin
+from warden.process import ProcessParams, simulate, at_target, design, dose_window, site_classes, calibrate
+from warden.assess import assess, control_gate, consensus
+
+ROOT = Path(__file__).resolve().parents[1]
+ACYL = {"name": "acetyl chloride", "smiles": "C[C:1](=O)[Cl:2]", "template": "acylation"}
+
+
+@pytest.mark.parametrize("smiles", ["C[C:1](=O)[Cl:2]", "C[C:1](=O)[O:2]C(C)=O", "C[C:1](=O)[n:2]1ccnc1"])
+def test_acylation_accepts_carbonyl_electrophiles(smiles):
+    assert validate_candidate({"name": "x", "smiles": smiles, "template": "acylation"})["id"]
+
+
+@pytest.mark.parametrize("smiles", ["C[CH:1](C)[Cl:2]", "C[Si:1](C)(C)[Cl:2]", "C[C:1](=O)[CH2:2]C"])
+def test_acylation_rejects_non_acyl_chemistry(smiles):
+    with pytest.raises(ValueError):
+        validate_candidate({"name": "x", "smiles": smiles, "template": "acylation"})
+
+
+def _record(ea_gs, ea_ngs, status="valid", name="x", method="xtb", binding=-0.3):
+    sites = [{"material": "SiO2", "label": "gs", "population": 1, "status": "valid",
+              "Ea_eV": ea_gs, "dE_rxn_eV": -0.5, "precomplex_binding_eV": binding},
+             {"material": "SiNx", "label": "ngs", "population": 1, "status": status,
+              "Ea_eV": ea_ngs if status == "valid" else None, "dE_rxn_eV": -1.0, "precomplex_binding_eV": binding}]
+    return {"candidate_id": "c_" + name, "name": name, "smiles": "C[C:1](=O)[Cl:2]", "template": "acylation",
+            "method": method, "mass_amu": 78.5, "sites": sites, "summary": kin.summarize(sites)}
+
+
+def test_gas_sites_and_endpoints_are_atom_matched():
+    spec = validate_candidate(ACYL)
+    for s in kin.sites_for("gas"):
+        r, p, m = kin.endpoints(s["substrate"], s["site"], s["normal"], spec, kin.DEFAULTS)
+        assert r.get_chemical_symbols() == p.get_chemical_symbols()
+        b_r, b_p = kin.bonded(r), kin.bonded(p)
+        assert not b_r[m["site"], m["anchor"]] and b_r[m["anchor"], m["leaving"]]
+        assert b_p[m["site"], m["anchor"]] and b_p[m["proton"], m["leaving"]]
+
+
+def test_cluster_carved_from_amorphous_slab():
+    slab = read(ROOT / "zenodo_structures/POSCAR_SiO2_1", format="vasp")
+    slab.set_pbc([True, True, False])
+    site = next(i for i, n in enumerate(slab.numbers) if n == 8 and
+                any(slab.numbers[j] == 1 for j in np.flatnonzero(kin.bonded(slab)[i])))
+    cluster, s, frozen, normal = kin.carve_cluster(slab, site, 3)
+    assert s == 0 and cluster.numbers[0] == 8 and frozen
+    assert np.isclose(np.linalg.norm(normal), 1)
+    assert not kin._clash(cluster)
+    # Every Si keeps four neighbours after capping.
+    b = kin.bonded(cluster, kin.STRUCTURE_FACTOR)
+    assert all(b[i].sum() == 4 for i, n in enumerate(cluster.numbers) if n == 14)
+
+
+def test_sackur_tetrode_matches_nitrogen_reference():
+    # N2 translational entropy at 298.15 K, 1 bar is about 150.4 J/(mol K).
+    s = kin.sackur_tetrode(28.0134, 298.15, 1e5) * 96485.332
+    assert s == pytest.approx(150.4, abs=0.5)
+
+
+def test_rates_monotonic_in_barrier_and_temperature():
+    assert kin.rate_constant(0.5, 473) > kin.rate_constant(0.8, 473)
+    assert kin.rate_constant(0.8, 523) > kin.rate_constant(0.8, 423)
+    assert 0 < kin.precomplex_fraction(-0.3, 78.5, 473, 133) < 1
+
+
+def test_selective_inhibitor_reaches_target_and_unselective_fails():
+    p = ProcessParams(theta_max=0.999, k_deg=0.0, k_deg_GS=0.0, shielding=3.0, dose_s=1.0, T_K=423)
+    good = simulate(site_classes(_record(2.0, 0.6), "SiO2"), site_classes(_record(2.0, 0.6), "SiNx"), p, 1)
+    S, cycles, _ = at_target(good["GS"], good["NGS"], p)
+    assert S[0] > 0.95 and cycles[0] == pytest.approx(100 / 1.2, rel=0.02)
+    bad = simulate(site_classes(_record(0.6, 0.6), "SiO2"), site_classes(_record(0.6, 0.6), "SiNx"), p, 1)
+    S, _, _ = at_target(bad["GS"], bad["NGS"], p)
+    assert not np.isfinite(S[0]) or S[0] < 0.5
+
+
+def test_degradation_needs_redosing():
+    rec = _record(2.0, 0.6)
+    gs, ngs = site_classes(rec, "SiO2"), site_classes(rec, "SiNx")
+    p = ProcessParams(theta_max=0.999, k_deg=0.1, shielding=1.0, dose_s=1.0, T_K=423)
+    s_once = at_target(*simulate(gs, ngs, p, 1000).values(), p)[0][0]
+    s_often = at_target(*simulate(gs, ngs, p, 1).values(), p)[0][0]
+    assert s_often > s_once
+
+
+def test_missing_barrier_is_refused_not_guessed():
+    with pytest.raises(ValueError):
+        design(_record(1.5, None, status="failed"), n_draws=10)
+
+
+def test_dose_window_matches_rate_theory():
+    rec = _record(1.4, 0.9)
+    p = ProcessParams(T_K=473, use_precomplex=False)
+    w = dose_window(site_classes(rec, "SiO2"), site_classes(rec, "SiNx"), p)
+    assert w["exists"]
+    assert w["min_dose_s"] == pytest.approx(np.log(100) / kin.rate_constant(0.9, 473), rel=1e-6)
+    assert w["max_dose_s"] == pytest.approx(-np.log(0.99) / kin.rate_constant(1.4, 473), rel=1e-6)
+
+
+def test_design_is_reproducible_and_ranks_inputs():
+    a = design(_record(1.4, 0.8), n_draws=40, temperatures=(473.,), doses=(1.,), intervals=(1, 3))
+    b = design(_record(1.4, 0.8), n_draws=40, temperatures=(473.,), doses=(1.,), intervals=(1, 3))
+    assert a["recommended"] == b["recommended"]
+    assert {m["input"] for m in a["measure_first"]} >= {"p_nuc", "shielding", "k_deg"}
+
+
+def test_calibration_recovers_synthetic_parameters():
+    rec = _record(1.6, 0.8)
+    truth = ProcessParams(T_K=423, dose_s=1., p_nuc=0.4, shielding=2.0, k_deg=0.05, theta_max=0.99, max_cycles=60)
+    curve = simulate(site_classes(rec, "SiO2"), site_classes(rec, "SiNx"), truth, 2)
+    observed = [{"cycle": c, "thk_GS_A": float(curve["GS"][0, c]), "thk_NGS_A": float(curve["NGS"][0, c])}
+                for c in range(5, 61, 5)]
+    fit = calibrate(rec, observed, replace(truth, p_nuc=1., shielding=1., k_deg=.03), 2,
+                    fit=("p_nuc", "k_deg"))
+    assert fit["rmse_A"] < 0.05
+    assert fit["params"]["p_nuc"] == pytest.approx(0.4, rel=0.1)
+
+
+def test_control_gate_fails_on_wrong_direction():
+    controls = [{"name": "acyl", "expected": "prefers_SiNx", "source": "test"}]
+    assert control_gate({"acyl": _record(1.5, 0.8, name="acyl")}, controls)["status"] == "pass"
+    assert control_gate({"acyl": _record(0.8, 1.5, name="acyl")}, controls)["status"] == "fail"
+    assert control_gate({}, controls)["status"] == "incomplete"
+
+
+def test_method_disagreement_becomes_uncertainty():
+    merged = consensus([_record(1.5, 0.8, method="xtb"), _record(1.2, 0.9, method="mace")])
+    assert merged["method_disagreement_eV"] == pytest.approx(0.4)
+    assert merged["direction_agreement"] is True
+
+
+def test_assessment_excludes_controls_and_unadmitted_and_reports_baselines():
+    options = {"n_draws": 30, "temperatures": (423.,), "doses": (1.,), "intervals": (1, 2)}
+    good, weak = _record(1.6, 0.8, name="good"), _record(0.9, 0.85, name="weak")
+    control = _record(1.5, 0.8, name="ctrl")
+    hidden = {**_record(2.0, 0.5, name="hidden"), "surface_admission": False}
+    r = assess([good, weak, control, hidden], [{"name": "ctrl", "expected": "prefers_SiNx", "source": "t"}],
+               design_options=options)
+    names = [x["name"] for x in r["ranking"]]
+    assert names[0] == "good" and "ctrl" not in names and "hidden" not in names
+    assert r["label"] == "control_calibrated" and r["scientific_success"] is False
+    assert "barrier_contrast_only" in r["baselines"]
+
+
+@pytest.mark.skipif(importlib.util.find_spec("tblite") is None, reason="tblite (xTB) not installed")
+def test_xtb_acylation_barrier_on_amine_model():
+    spec = validate_candidate(ACYL)
+    s = next(x for x in kin.sites_for("gas") if x["site_type"] == "NH2")
+    r = kin.barrier(s["substrate"], s["site"], s["normal"], s["frozen"], spec,
+                    kin.calculator_factory({"method": "xtb"}), {})
+    assert r["status"] == "valid"
+    assert 0.0 < r["Ea_eV"] < 2.0 and r["dE_rxn_eV"] < 0
+
+
+def test_barrier_measured_from_lowest_preceding_image():
+    r = kin.classify([0., -.15, -.05, .40, -.6, -1.], True, False, {})
+    assert r["status"] == "valid" and r["Ea_eV"] == pytest.approx(.55)
+    assert r["precomplex_image"] == 1 and r["dE_rxn_eV"] == pytest.approx(-.85)
+
+
+@pytest.mark.parametrize("profile,status", [
+    ([0., .01, .02, .03, .04, .3], "no_barrier_resolved"),   # uphill, no resolvable maximum
+    ([0., .1, 4.0, 4.1, .2, -.5], "band_unresolved")])
+def test_unresolved_paths_are_not_barriers(profile, status):
+    assert kin.classify(profile, True, False, {})["status"] == status
+
+
+def test_downhill_band_without_rise_is_barrierless_not_failed():
+    r = kin.classify([0., -.02, -.10, -.15, -.40, -.5], True, False, {})
+    assert r["status"] == "barrierless" and r["Ea_upper_eV"] == pytest.approx(.05)
+    # Not converged is still a failure, whatever the profile looks like.
+    assert kin.classify([0., -.02, -.10, -.15, -.40, -.5], False, False, {})["status"] == "neb_not_converged"
+
+def test_reclassify_rebases_binding_on_the_new_best_attempt():
+    # E_substrate + E_molecule = -99.5, so attempt 0's stored binding is -100 + 99.5 = -0.5.
+    # Uphill band under the new min_barrier_eV: unresolved (a downhill one would be barrierless and win).
+    first = {"status": "valid", "Ea_eV": .3, "profile_eV": [0., .3, .1, .5], "precomplex_shift_eV": 0.,
+             "e_reactant_complex_eV": -100.}
+    second = {"status": "valid", "Ea_eV": .6, "profile_eV": [0., -.4, .2, -.6], "precomplex_shift_eV": -.4,
+              "e_reactant_complex_eV": -101.}
+    record = {"sites": [{"material": "SiNx", "label": "ngs", "population": 1, "status": "valid", "Ea_eV": .3,
+                         "precomplex_binding_eV": -.5, "attempts": [first, second]}]}
+    site = kin.reclassify(record, {"min_barrier_eV": .35})["sites"][0]
+    assert site["Ea_eV"] == pytest.approx(.6)
+    assert site["precomplex_binding_eV"] == pytest.approx(-101. - .4 + 99.5)
+
+
+def test_consensus_keeps_gas_and_slab_records_of_one_method():
+    gas = {**_record(1.5, 0.8), "sites_source": "gas"}
+    slab = {**_record(0.8, 1.5), "sites_source": "manifest"}
+    for order in ([gas, slab], [slab, gas]):
+        merged = consensus(order)
+        assert merged["sites_source"] == "manifest"
+        assert set(merged["methods"]) == {"xtb", "xtb:gas"}
+        assert merged["direction_agreement"] is False
+
+
+def test_decide_executor_gets_engine_settings_for_mace(tmp_path, monkeypatch):
+    import json
+    from warden import __main__ as cli, decide as dc
+    seen = {}
+    class Executor:
+        def __init__(self, sites, config, *_):
+            seen.update(config)
+    monkeypatch.setattr(dc, "LiveExecutor", Executor)
+    monkeypatch.setattr(dc, "run", lambda *a, **k: {"trace": [], "spent": 0., "scores": {}, "pcs": 0.,
+                                                    "pick": None, "methods": [], "failures": []})
+    model = tmp_path / "mace.model"; model.write_bytes(b"x")
+    config = json.loads((ROOT / "config/v3.json").read_text())
+    config["engine"]["model_path"] = str(model)
+    (tmp_path / "v3.json").write_text(json.dumps(config))
+    assert cli.main(["decide", "--db", str(tmp_path / "db.sqlite"), "--config", str(tmp_path / "v3.json"),
+                     "--methods", "mace", "--out", str(tmp_path / "out")]) == 0
+    assert seen["model_path"] == str(model) and seen["n_images"] == config["kinetics"]["n_images"]
+
+
+def test_reclassify_updates_stored_record_without_recomputing():
+    attempt = {"status": "valid", "Ea_eV": -.02, "profile_eV": [0., -.02, -.10, -.15, -.40, -.5],
+               "precomplex_shift_eV": 0.}
+    record = {"name": "x", "sites": [{"material": "SiO2", "label": "gs", "population": 1, "status": "valid",
+                                      "Ea_eV": -.02, "precomplex_binding_eV": -.1, "attempts": [attempt]}]}
+    out = kin.reclassify(record)
+    site = out["sites"][0]
+    assert site["status"] == "valid" and site["barrierless"] and site["Ea_eV"] == 0.0
+    assert out["summary"]["SiO2"]["Ea_min_eV"] == 0.0
+
+
+# --- barrierless paths are fast reactions, not failures ------------------------
+
+def test_barrierless_oxide_path_wins_over_slower_orientation():
+    """The bias this guards against: one orientation finds a barrierless oxide
+    reaction, another a 0.92 eV path. The site barrier is the fastest path (0 eV),
+    not the slower one, or a non-selective molecule looks selective."""
+    fast = {"status": "no_barrier_resolved", "Ea_eV": .017, "dE_rxn_eV": -.46,
+            "profile_eV": [0., -.01, -.01, 0., -.25, -.5], "precomplex_shift_eV": 0., "stepwise_indication": False}
+    slow = {"status": "valid", "Ea_eV": .92, "dE_rxn_eV": -.5,
+            "profile_eV": [0., .3, .92, .5, -.2, -.5], "precomplex_shift_eV": 0., "stepwise_indication": False}
+    record = {"name": "x", "sites": [{"material": "SiO2", "label": "gs", "population": 1, "status": "valid",
+                                      "Ea_eV": .92, "precomplex_binding_eV": -.2, "attempts": [fast, slow]}]}
+    site = kin.reclassify(record)["sites"][0]
+    assert site["Ea_eV"] == 0.0 and site["barrierless"] and site["best_attempt"] == 0
+
+
+def test_censored_barrier_resolved_against_selectivity():
+    a = {"status": "barrierless", "Ea_eV": .02}
+    assert kin.effective_barrier(a, "SiO2") == 0.0                 # oxide: as fast as possible
+    assert kin.effective_barrier(a, "SiNx") == pytest.approx(.05)  # nitride: slowest consistent
+    assert kin.effective_barrier({"status": "band_unresolved", "Ea_eV": 5.}, "SiO2") is None
+
+
+def test_real_acetyl_chloride_record_is_reclassified():
+    """xTB run whose oxide paths were all barrierless and so were discarded."""
+    import json
+    from pathlib import Path
+    record = json.loads((Path(__file__).parent / "fixtures/kinetics/acetyl_chloride_xtb_gas.json").read_text())
+    assert record["summary"]["SiO2"] is None                       # what the old code reported
+    out = kin.reclassify(record)
+    sites = {s["label"]: s for s in out["sites"]}
+    assert sites["gas:OH"]["status"] == "valid" and sites["gas:OH"]["Ea_eV"] == 0.0
+    assert sites["gas:NH_bridge"]["barrierless"] and sites["gas:NH_bridge"]["Ea_eV"] == pytest.approx(.05)
+    assert sites["gas:NH2"]["Ea_eV"] == pytest.approx(.367, abs=.005) and not sites["gas:NH2"]["barrierless"]
+    # The oxide now reacts at least as fast as the nitride: no kinetic selectivity.
+    assert out["summary"]["dEa_GS_minus_NGS_eV"] < 0
+
+
+def test_barrierless_attempts_seed_successes_not_failures():
+    import json
+    from pathlib import Path
+    from warden import decide as dc
+    record = json.loads((Path(__file__).parent / "fixtures/kinetics/acetyl_chloride_xtb_gas.json").read_text())
+    obs = dc.observations_from_kinetics([kin.reclassify(record)])
+    by_status = {}
+    for o in obs:
+        by_status.setdefault((o.site, o.status, o.reason), []).append(o.Ea_eV)
+    assert by_status[("gas:OH", "valid", "barrierless")] == [0.0, 0.0]
+    assert ("gas:NH_bridge", "valid", "barrierless") in by_status
+    # Genuine numerical failures stay failures.
+    assert any(o.status != "valid" for o in obs if o.site == "gas:NH_bridge")

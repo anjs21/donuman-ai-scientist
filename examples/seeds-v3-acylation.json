@@ -1,0 +1,38 @@
+[
+  {
+    "name": "acetyl chloride",
+    "smiles": "C[C:1](=O)[Cl:2]",
+    "template": "acylation",
+    "role": "inhibitor"
+  },
+  {
+    "name": "pivaloyl chloride",
+    "smiles": "CC(C)(C)[C:1](=O)[Cl:2]",
+    "template": "acylation",
+    "role": "inhibitor"
+  },
+  {
+    "name": "benzoyl chloride",
+    "smiles": "O=[C:1]([Cl:2])c1ccccc1",
+    "template": "acylation",
+    "role": "inhibitor"
+  },
+  {
+    "name": "methyl chloroformate",
+    "smiles": "CO[C:1](=O)[Cl:2]",
+    "template": "acylation",
+    "role": "inhibitor"
+  },
+  {
+    "name": "acetic anhydride",
+    "smiles": "C[C:1](=O)[O:2]C(C)=O",
+    "template": "acylation",
+    "role": "inhibitor"
+  },
+  {
+    "name": "N-acetylimidazole",
+    "smiles": "C[C:1](=O)[n:2]1ccnc1",
+    "template": "acylation",
+    "role": "inhibitor"
+  }
+]

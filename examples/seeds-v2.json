@@ -1,0 +1,27 @@
+[
+  {
+    "name": "DMATMS",
+    "smiles": "C[Si:1](C)(C)[N:2](C)C",
+    "template": "silyl_substitution",
+    "role": "inhibitor"
+  },
+  {
+    "name": "ETS_pristine",
+    "smiles": "CC[Si:1]([Cl:2])(Cl)Cl",
+    "template": "silyl_substitution",
+    "role": "inhibitor",
+    "chemical_form": "pristine ethyltrichlorosilane; not the hydrolyzed ETS used in the paper benchmark"
+  },
+  {
+    "name": "pyridine",
+    "smiles": "[n:1]1ccccc1",
+    "template": "physisorption",
+    "role": "inhibitor"
+  },
+  {
+    "name": "NH3",
+    "smiles": "[NH3:1]",
+    "template": "physisorption",
+    "role": "inhibitor"
+  }
+]

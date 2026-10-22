@@ -1,0 +1,27 @@
+{
+  "note": "Published Kim et al. slabs. The SiNx entry carries a recorded reference-structure exemption from the slab-density estimate only; every other admission check gates. See warden/surfaces.py:EXEMPTABLE.",
+  "surfaces": [
+    {
+      "id": "SiO2_kim_1",
+      "material": "SiO2",
+      "path": "../zenodo_structures/POSCAR_SiO2_1",
+      "format": "vasp",
+      "stage": "passivated_slab",
+      "provenance": "Kim et al., Appl. Surf. Sci. 2026, 730, 166294 (arXiv:2510.17356); Zenodo DOI 10.5281/zenodo.18081511, POSCAR_SiO2_1."
+    },
+    {
+      "id": "SiNx_kim_1",
+      "material": "SiNx",
+      "path": "../zenodo_structures/POSCAR_SiNx_1",
+      "format": "vasp",
+      "stage": "passivated_slab",
+      "provenance": "Kim et al., Appl. Surf. Sci. 2026, 730, 166294 (arXiv:2510.17356); Zenodo DOI 10.5281/zenodo.18081511, POSCAR_SiNx_1.",
+      "reference_structure": {
+        "citation": "Kim et al., Appl. Surf. Sci. 2026, 730, 166294",
+        "doi": "10.5281/zenodo.18081511",
+        "exempt_checks": ["density_gcc"],
+        "reason": "Published, peer-reviewed slab. The whole-slab density estimator reads 2.13 g/cm3 because the rough passivated surface layers count as full volume on a 12.6 A slab; trimming 2-4 A per face reads 2.71-2.78, and the same trimming moves the admitted SiO2 reference out of its own window (2.34-2.47 vs 2.20 +/- 0.10), so the estimator, not the structure, is out of calibration for thin slabs."
+      }
+    }
+  ]
+}

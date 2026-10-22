@@ -1,0 +1,92 @@
+{
+  "DMATMS": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "high",
+    "notes": "Aminosilane inhibitor (Kim et al. 2026). Caps -OH/-NH by releasing dimethylamine; silyl group sterically blocks growth."
+  },
+  "TMCS": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "high",
+    "notes": "Chlorosilane inhibitor; caps -OH releasing HCl. Classic oxide-selective capping agent -> expect strong on SiO2."
+  },
+  "NH3": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "high",
+    "notes": "Small Lewis base; probes N/H-bonding blocking without covalent capping."
+  },
+  "dimethylamine": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "high",
+    "notes": "Secondary amine; H-bonds to surface -OH/-NH."
+  },
+  "pyridine": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "medium",
+    "notes": "Aromatic base; coordinates to Lewis-acidic / protic sites."
+  },
+  "ETS": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "medium",
+    "notes": "Ethyltrichlorosilane inhibitor; caps -OH/-NH releasing HCl."
+  },
+  "ODTS": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "low",
+    "notes": "Octadecyltrichlorosilane inhibitor; caps -OH/-NH releasing HCl. Form hydrophobic SAM."
+  },
+  "ODPA": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "low",
+    "notes": "Octadecylphosphonic acid inhibitor; coordinates to oxide/nitride surfaces to form SAM."
+  },
+  "UDA": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "low",
+    "notes": "Undecylaldehyde inhibitor; physisorbs/coordinates via carbonyl group."
+  },
+  "hacac": {
+    "enabled": true,
+    "category": "inhibitor",
+    "volatility": "medium",
+    "notes": "Acetylacetone ligand; chelates/coordinates to surface protic/Lewis sites."
+  },
+  "BDMAS": {
+    "enabled": true,
+    "category": "precursor",
+    "volatility": "high",
+    "notes": "SiO2 ALD precursor; chemisorbs on -OH releasing amine. Fragment is an approximation of the SiH2(NMe2)-anchor."
+  },
+  "SiCl4": {
+    "enabled": true,
+    "category": "precursor",
+    "volatility": "high",
+    "notes": "Halide SiO2 precursor; chemisorbs on -OH releasing HCl."
+  },
+  "DIPAS": {
+    "enabled": true,
+    "category": "precursor",
+    "volatility": "high",
+    "notes": "Di(isopropylamino)silane precursor; chemisorbs on -OH releasing isopropylamine."
+  },
+  "BDIPADS": {
+    "enabled": true,
+    "category": "precursor",
+    "volatility": "medium",
+    "notes": "1,2-bis(diisopropylamino)disilane precursor; chemisorbs on -OH releasing diisopropylamine."
+  },
+  "H2O": {
+    "enabled": true,
+    "category": "coreactant",
+    "volatility": "high",
+    "notes": "Oxidant co-reactant that re-hydroxylates the growth surface."
+  }
+}

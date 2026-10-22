@@ -1,0 +1,29 @@
+[
+  {
+    "name": "DMATMS",
+    "smiles": "C[Si:1](C)(C)[N:2](C)C",
+    "template": "silyl_substitution",
+    "role": "inhibitor",
+    "expected": "prefers_SiO2",
+    "source": "Aminosilane inhibitors react with SiO2 silanols; DMATMS is screened as an SiO2-selective inhibitor in Kim et al., Appl. Surf. Sci. 2026, 730, 166294 (arXiv:2510.17356).",
+    "source_verified": false
+  },
+  {
+    "name": "BDIPADS",
+    "smiles": "CC(C)[N:2](C(C)C)[SiH2:1][SiH2]N(C(C)C)C(C)C",
+    "template": "silyl_substitution",
+    "role": "inhibitor",
+    "expected": "prefers_SiO2",
+    "source": "Used as the published aminosilane oxide-preference positive control in Sahu et al., ChemRxiv 2026, doi:10.26434/chemrxiv.15008158; primary experimental reference to be added.",
+    "source_verified": false
+  },
+  {
+    "name": "acetyl chloride",
+    "smiles": "C[C:1](=O)[Cl:2]",
+    "template": "acylation",
+    "role": "inhibitor",
+    "expected": "prefers_SiNx",
+    "source": "Amine >> alcohol acylation chemoselectivity (standard organic chemistry); reported for SiN amines vs SiO2 silanols in Sahu et al., ChemRxiv 2026, doi:10.26434/chemrxiv.15008158.",
+    "source_verified": false
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "transport": "streamable_http",
+  "url": "https://mcp.valency.io/",
+  "token_env": "BOND_TOKEN",
+  "allowed_tools": []
+}

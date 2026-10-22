@@ -37,6 +37,8 @@ chemistries so the agent can discover the contrast rather than assume it.
 Only numpy + ase are required to build geometries. No GPU needed here.
 """
 
+import json
+import os
 import numpy as np
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Tuple
@@ -197,6 +199,255 @@ def frag_trimethylsilyl():
     return _silyl(open_dir=(0, 0, -1))
 
 
+# --- New molecule geometry builders & fragments ---
+
+def build_isopropylamine():
+    """NH2-CH(CH3)2 (isopropylamine byproduct)."""
+    a = Atoms("N", positions=[[0, 0, 0]])
+    _add(a, "H", [0.8, 0.6, 0])
+    _add(a, "H", [-0.8, 0.6, 0])
+    c_ch = np.array([0, -1.47, 0])
+    _add(a, "C", c_ch)
+    _add(a, "H", c_ch + [0, 0, 1.09])
+    c_m1 = c_ch + [1.26, -0.89, 0]
+    c_m2 = c_ch + [-1.26, -0.89, 0]
+    _add(a, "C", c_m1)
+    _add(a, "C", c_m2)
+    for h in _methyl_H(c_m1, [-1.26, 0.89, 0]):
+        _add(a, "H", h)
+    for h in _methyl_H(c_m2, [1.26, 0.89, 0]):
+        _add(a, "H", h)
+    return a
+
+
+def _safe_diisopropylamino(n_pos, z_sign):
+    """Adds a N(iPr)2 group starting at n_pos. z_sign controls the direction along z."""
+    a = Atoms("N", positions=[n_pos])
+    rel_positions = [
+        ("C", [1.4, 0.0, 0.5 * z_sign]),
+        ("C", [-1.4, 0.0, 0.5 * z_sign]),
+        ("H", [1.4, 0.0, 1.59 * z_sign]),
+        ("H", [-1.4, 0.0, 1.59 * z_sign]),
+        ("C", [1.4, 1.4, -0.1 * z_sign]),
+        ("C", [1.4, -1.4, -0.1 * z_sign]),
+        ("C", [-1.4, 1.4, -0.1 * z_sign]),
+        ("C", [-1.4, -1.4, -0.1 * z_sign]),
+    ]
+    for symbol, pos in rel_positions:
+        _add(a, symbol, n_pos + np.array(pos))
+    for idx in [5, 6, 7, 8]:
+        m_pos = a[idx].position
+        _add(a, "H", m_pos + np.array([0.8, 0.5, 0.5 * z_sign]))
+        _add(a, "H", m_pos + np.array([-0.8, 0.5, 0.5 * z_sign]))
+        _add(a, "H", m_pos + np.array([0.0, -0.8, -0.8 * z_sign]))
+    return a
+
+
+def build_diisopropylamine():
+    """HN(CH(CH3)2)2 (diisopropylamine byproduct)."""
+    a = _safe_diisopropylamino(np.array([0.0, 0.0, 0.0]), -1)
+    _add(a, "H", [0, 1.01, 0])
+    return a
+
+
+def build_dipas():
+    """Di(isopropylamino)silane, SiH2(NH-iPr)2 (DIPAS)."""
+    a = Atoms("Si", positions=[[0, 0, 0]])
+    _add(a, "H", [0.0, 1.48, 0.0])
+    _add(a, "H", [0.0, -1.48, 0.0])
+    dirs = _tetra_from((0, 1, 0))[:2]
+    for d in dirs:
+        n_pos = _u(d) * 1.73
+        _add(a, "N", n_pos)
+        _add(a, "H", n_pos + [0, 0, 1.0])
+        c_ch = n_pos + _u(d) * 1.47
+        _add(a, "C", c_ch)
+        _add(a, "H", c_ch + [0, 1.0, 0])
+        dirs_c = _tetra_from(-_u(d))[:2]
+        for dc in dirs_c:
+            c_pos = c_ch + _u(dc) * 1.54
+            _add(a, "C", c_pos)
+            for h in _methyl_H(c_pos, -_u(dc)):
+                _add(a, "H", h)
+    return a
+
+
+def frag_monoisopropylaminosilyl():
+    """-SiH2(NH-iPr) fragment left on surface by DIPAS."""
+    a = Atoms("Si", positions=[[0, 0, 0]])
+    _add(a, "H", [1.0, 1.0, 0.5])
+    _add(a, "H", [-1.0, 1.0, 0.5])
+    n_pos = np.array([0, 0, -1.73])
+    _add(a, "N", n_pos)
+    _add(a, "H", n_pos + [0.8, 0.6, 0])
+    c_ch = n_pos + [0, -1.47, 0]
+    _add(a, "C", c_ch)
+    _add(a, "H", c_ch + [0, 0, 1.09])
+    c_m1 = c_ch + [1.26, -0.89, 0]
+    c_m2 = c_ch + [-1.26, -0.89, 0]
+    _add(a, "C", c_m1)
+    _add(a, "C", c_m2)
+    for h in _methyl_H(c_m1, [-1.26, 0.89, 0]):
+        _add(a, "H", h)
+    for h in _methyl_H(c_m2, [1.26, 0.89, 0]):
+        _add(a, "H", h)
+    return a
+
+
+def build_bdipads():
+    """1,2-bis(diisopropylamino)disilane, (iPr2N)SiH2-SiH2(NiPr2) (BDIPADS)."""
+    a = Atoms("Si", positions=[[0, 0, 1.175]])
+    _add(a, "Si", [0, 0, -1.175])
+    _add(a, "H", [1.0, 1.0, 1.675])
+    _add(a, "H", [-1.0, -1.0, 1.675])
+    _add(a, "H", [1.0, -1.0, -1.675])
+    _add(a, "H", [-1.0, 1.0, -1.675])
+    n1_pos = np.array([0, 0, 1.175 + 1.73])
+    a += _safe_diisopropylamino(n1_pos, -1)
+    n2_pos = np.array([0, 0, -1.175 - 1.73])
+    a += _safe_diisopropylamino(n2_pos, 1)
+    return a
+
+
+def frag_bdipads():
+    """-SiH2-SiH2(NiPr2) fragment left on surface by BDIPADS."""
+    a = Atoms("Si", positions=[[0, 0, 0]])
+    _add(a, "H", [1.0, 1.0, 0.5])
+    _add(a, "H", [-1.0, 1.0, 0.5])
+    si2_pos = np.array([0, 0, -2.35])
+    _add(a, "Si", si2_pos)
+    _add(a, "H", si2_pos + [1.0, -1.0, -0.5])
+    _add(a, "H", si2_pos + [-1.0, -1.0, -0.5])
+    n_pos = si2_pos + np.array([0, 0, -1.73])
+    a += _safe_diisopropylamino(n_pos, 1)
+    return a
+
+
+def _build_alkyl_trichlorosilane(n_carbons):
+    a = Atoms("Si", positions=[[0, 0, 0]])
+    dirs = _tetra_from((0, 0, -1))
+    for d in dirs:
+        _add(a, "Cl", _u(d) * 2.02)
+    for i in range(n_carbons):
+        y_off = 0.889 * (i % 2)
+        z_off = -1.87 - i * 1.257
+        pos = np.array([0.0, y_off, z_off])
+        _add(a, "C", pos)
+        if i == n_carbons - 1:
+            _add(a, "H", pos + [0.89, 0.5, 0.5])
+            _add(a, "H", pos + [-0.89, 0.5, 0.5])
+            _add(a, "H", pos + [0.0, -0.889, -0.8])
+        else:
+            _add(a, "H", pos + [1.02, 0.0, 0.0])
+            _add(a, "H", pos + [-1.02, 0.0, 0.0])
+    return a
+
+
+def _frag_alkyl_dichlorosilyl(n_carbons):
+    a = Atoms("Si", positions=[[0, 0, 0]])
+    dirs = _tetra_from((0, 0, -1))
+    _add(a, "Cl", _u(dirs[0]) * 2.02)
+    _add(a, "Cl", _u(dirs[1]) * 2.02)
+    for i in range(n_carbons):
+        y_off = 0.889 * (i % 2)
+        z_off = -1.87 - i * 1.257
+        pos = np.array([0.0, y_off, z_off])
+        _add(a, "C", pos)
+        if i == n_carbons - 1:
+            _add(a, "H", pos + [0.89, 0.5, 0.5])
+            _add(a, "H", pos + [-0.89, 0.5, 0.5])
+            _add(a, "H", pos + [0.0, -0.889, -0.8])
+        else:
+            _add(a, "H", pos + [1.02, 0.0, 0.0])
+            _add(a, "H", pos + [-1.02, 0.0, 0.0])
+    return a
+
+
+def build_ets():
+    """Ethyltrichlorosilane, (CH3CH2)SiCl3 (ETS)."""
+    return _build_alkyl_trichlorosilane(2)
+
+
+def frag_ets():
+    """Ethyldichlorosilyl fragment."""
+    return _frag_alkyl_dichlorosilyl(2)
+
+
+def build_odts():
+    """Octadecyltrichlorosilane, (C18H37)SiCl3 (ODTS)."""
+    return _build_alkyl_trichlorosilane(18)
+
+
+def frag_odts():
+    """Octadecyldichlorosilyl fragment."""
+    return _frag_alkyl_dichlorosilyl(18)
+
+
+def build_odpa():
+    """Octadecylphosphonic acid, C18H37-PO(OH)2 (ODPA)."""
+    a = Atoms("P", positions=[[0, 0, 0]])
+    _add(a, "O", [0, 1.48, 0])
+    o1 = np.array([1.1, -1.1, 0])
+    o2 = np.array([-1.1, -1.1, 0])
+    _add(a, "O", o1)
+    _add(a, "O", o2)
+    _add(a, "H", o1 + [0.7, -0.7, 0])
+    _add(a, "H", o2 + [-0.7, -0.7, 0])
+    for i in range(18):
+        y_off = 0.889 * (i % 2)
+        z_off = -1.8 - i * 1.257
+        pos = np.array([0.0, y_off, z_off])
+        _add(a, "C", pos)
+        if i == 17:
+            _add(a, "H", pos + [0.89, 0.5, 0.5])
+            _add(a, "H", pos + [-0.89, 0.5, 0.5])
+            _add(a, "H", pos + [0.0, -0.889, -0.8])
+        else:
+            _add(a, "H", pos + [1.02, 0.0, 0.0])
+            _add(a, "H", pos + [-1.02, 0.0, 0.0])
+    return a
+
+
+def build_uda():
+    """Undecylaldehyde, C10H21-CHO (UDA)."""
+    a = Atoms("C", positions=[[0, 0, 0]])
+    _add(a, "O", [0, 1.22, 0])
+    _add(a, "H", [-0.94, -0.54, 0])
+    for i in range(10):
+        y_off = -1.1 + 0.889 * (i % 2)
+        z_off = -1.257 - i * 1.257
+        pos = np.array([0.0, y_off, z_off])
+        _add(a, "C", pos)
+        if i == 9:
+            _add(a, "H", pos + [0.89, 0.5, 0.5])
+            _add(a, "H", pos + [-0.89, 0.5, 0.5])
+            _add(a, "H", pos + [0.0, -0.889, -0.8])
+        else:
+            _add(a, "H", pos + [1.02, 0.0, 0.0])
+            _add(a, "H", pos + [-1.02, 0.0, 0.0])
+    return a
+
+
+def build_hacac():
+    """Acetylacetone, CH3-CO-CH2-CO-CH3 (hacac)."""
+    a = Atoms("C", positions=[[0, 0, 0]])
+    _add(a, "H", [0, -0.6, 0.89])
+    _add(a, "H", [0, -0.6, -0.89])
+    _add(a, "C", [-1.25, 0.3, 0])
+    _add(a, "O", [-1.25, 1.52, 0])
+    c1 = np.array([-2.5, -0.5, 0])
+    _add(a, "C", c1)
+    for h in _methyl_H(c1, [1.25, 0.8, 0]):
+        _add(a, "H", h)
+    _add(a, "C", [1.25, 0.3, 0])
+    _add(a, "O", [1.25, 1.52, 0])
+    c5 = np.array([2.5, -0.5, 0])
+    _add(a, "C", c5)
+    for h in _methyl_H(c5, [-1.25, 0.8, 0]):
+        _add(a, "H", h)
+    return a
+
+
 # ===========================================================================
 # Reagent records
 # ===========================================================================
@@ -221,7 +472,9 @@ class Reagent:
 
 # The library. Add entries here to extend the screen; the agent and energetics
 # engine pick them up automatically.
-LIBRARY = {
+# The library. Add entries here to extend the screen; the agent and energetics
+# engine pick them up automatically.
+DEFAULT_LIBRARY = {
     # ---- inhibitors (block the non-growth surface) ----
     "DMATMS": Reagent(
         name="DMATMS", category="inhibitor", formula="C5H15NSi",
@@ -255,6 +508,35 @@ LIBRARY = {
         reaction_type="physisorption", build=build_pyridine,
         targets=("OH", "NH2", "NH_bridge"), volatility="medium",
         notes="Aromatic base; coordinates to Lewis-acidic / protic sites."),
+    "ETS": Reagent(
+        name="ETS", category="inhibitor", formula="C2H5Cl3Si",
+        reaction_type="dissociative", build=build_ets,
+        fragment=frag_ets, byproduct=build_hcl,
+        anchor_bond=1.65, targets=("OH", "NH2"),
+        volatility="medium",
+        notes="Ethyltrichlorosilane inhibitor; caps -OH/-NH releasing HCl."),
+    "ODTS": Reagent(
+        name="ODTS", category="inhibitor", formula="C18H37Cl3Si",
+        reaction_type="dissociative", build=build_odts,
+        fragment=frag_odts, byproduct=build_hcl,
+        anchor_bond=1.65, targets=("OH", "NH2"),
+        volatility="low",
+        notes="Octadecyltrichlorosilane inhibitor; caps -OH/-NH releasing HCl. Form hydrophobic SAM."),
+    "ODPA": Reagent(
+        name="ODPA", category="inhibitor", formula="C18H39O3P",
+        reaction_type="physisorption", build=build_odpa,
+        targets=("OH", "NH2"), volatility="low",
+        notes="Octadecylphosphonic acid inhibitor; coordinates to oxide/nitride surfaces to form SAM."),
+    "UDA": Reagent(
+        name="UDA", category="inhibitor", formula="C11H22O",
+        reaction_type="physisorption", build=build_uda,
+        targets=("OH", "NH2"), volatility="low",
+        notes="Undecylaldehyde inhibitor; physisorbs/coordinates via carbonyl group."),
+    "hacac": Reagent(
+        name="hacac", category="inhibitor", formula="C5H8O2",
+        reaction_type="physisorption", build=build_hacac,
+        targets=("OH", "NH2"), volatility="medium",
+        notes="Acetylacetone ligand; chelates/coordinates to surface protic/Lewis sites."),
 
     # ---- precursors (grow the SiOx film on the growth surface) ----
     "BDMAS": Reagent(
@@ -270,6 +552,18 @@ LIBRARY = {
         fragment=frag_trimethylsilyl, byproduct=build_hcl,
         anchor_bond=1.65, targets=("OH",), volatility="high",
         notes="Halide SiO2 precursor; chemisorbs on -OH releasing HCl."),
+    "DIPAS": Reagent(
+        name="DIPAS", category="precursor", formula="C6H18N2Si",
+        reaction_type="dissociative", build=build_dipas,
+        fragment=frag_monoisopropylaminosilyl, byproduct=build_isopropylamine,
+        anchor_bond=1.65, targets=("OH",), volatility="high",
+        notes="Di(isopropylamino)silane precursor; chemisorbs on -OH releasing isopropylamine."),
+    "BDIPADS": Reagent(
+        name="BDIPADS", category="precursor", formula="C12H30N2Si2",
+        reaction_type="dissociative", build=build_bdipads,
+        fragment=frag_bdipads, byproduct=build_diisopropylamine,
+        anchor_bond=1.65, targets=("OH",), volatility="medium",
+        notes="1,2-bis(diisopropylamino)disilane precursor; chemisorbs on -OH releasing diisopropylamine."),
 
     # ---- co-reactant ----
     "H2O": Reagent(
@@ -278,6 +572,42 @@ LIBRARY = {
         targets=("OH",), volatility="high",
         notes="Oxidant co-reactant that re-hydroxylates the growth surface."),
 }
+
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reagents_config.json")
+
+def _load_reagents_config():
+    default_config = {
+        name: {
+            "enabled": True,
+            "category": r.category,
+            "volatility": r.volatility,
+            "notes": r.notes
+        }
+        for name, r in DEFAULT_LIBRARY.items()
+    }
+    if not os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(default_config, f, indent=2)
+        except OSError:
+            pass
+        return default_config
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return default_config
+
+_config = _load_reagents_config()
+LIBRARY = {}
+for name, r in DEFAULT_LIBRARY.items():
+    cfg_entry = _config.get(name, {})
+    if cfg_entry.get("enabled", True):
+        r.category = cfg_entry.get("category", r.category)
+        r.volatility = cfg_entry.get("volatility", r.volatility)
+        r.notes = cfg_entry.get("notes", r.notes)
+        LIBRARY[name] = r
+
 
 
 def get_reagents(category=None, names=None):

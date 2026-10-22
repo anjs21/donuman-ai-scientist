@@ -6,23 +6,33 @@ __pycache__/
 .eggs/
 build/
 dist/
+.pytest_cache/
+pytest-of-root/
 
-# ── Virtual environments ─────────────────────────────────
+# ── Virtual environments / secrets ───────────────────────
 venv/
-.venv/
+.venv*/
 env/
 ENV/
+.env
+.env.*
+!.env.example
 
 # ── Pipeline results / reports (generated) ───────────────
 results/
 results_*/
+runs/
 report*.json
 report*.md
 selectivity_*.csv
+# Distribution bundles (their contents are tracked as source).
+/*.zip
 
-# ── Run logs ─────────────────────────────────────────────
+# ── Run and HPC job logs ─────────────────────────────────
 *.log
-*_run.log
+warden_*.out
+warden_*.err
+slurm-*.out
 
 # ── Caches (regenerated on demand) ───────────────────────
 bulk_cache/
@@ -36,11 +46,19 @@ SiNx_*.xyz
 *_fast_*.xyz
 *_full_*.xyz
 *_prod_*.xyz
+surfaces_v2/
+# Inspection dumps written by `python inhibitor_library.py`.
+/_*.xyz
 
-# ── External / downloaded data (not source) ──────────────
+# ── Models, external data, local configuration ───────────
+models/
 # Published amorphous bulks (Kim et al. / Zenodo) and their conversions.
 literature/
 published_xyz/
+config/bond.json
+config/*.local.json
+examples/my-evidence.json
+examples/surfaces-live.json
 
 # ── OS / editor cruft ────────────────────────────────────
 .DS_Store
@@ -48,3 +66,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Literature loop scratch databases (evidence/ itself is tracked)
+evidence/*.sqlite
+evidence/*.sqlite-*

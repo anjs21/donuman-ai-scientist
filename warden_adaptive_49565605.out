@@ -1,0 +1,64 @@
+Wed Oct 21 16:51:33 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Tesla V100-SXM2-32GB           On  |   00000000:16:00.0 Off |                    0 |
+| N/A   32C    P0             39W /  300W |       0MiB /  32768MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+Executing: {'kind': 'sample_site', 'candidate_id': 'cand_34fc90b4ab63dfb0', 'surface_id': 'SiO2_reviewed_relaxed', 'site': 32, 'priority': 2.828480260579454, 'reason': 'Placement spread exceeds the sampling-review threshold', 'seed_spread_eV': 0.7071200651448635, 'novel_site': False, 'poses': 2, 'id': '53553e1558eea01e3916'}
+{
+  "scientific_success": false,
+  "reference_validation": "pending",
+  "status": "ready",
+  "next_action": {
+    "kind": "sample_site",
+    "candidate_id": "cand_d134e71fee23d0df",
+    "surface_id": "SiNx_reviewed_relaxed",
+    "site": 157,
+    "priority": 1.603887400831809,
+    "reason": "Placement spread exceeds the sampling-review threshold",
+    "seed_spread_eV": 0.40097185020795223,
+    "novel_site": false,
+    "poses": 2,
+    "id": "cb189cac42ada4484251"
+  },
+  "manual_reviews": [
+    {
+      "candidate_id": "cand_d134e71fee23d0df",
+      "surface_id": "SiO2_reviewed_relaxed",
+      "site": 134,
+      "reason": "More than 20% placement failures; inspect identities/clashes before retrying"
+    },
+    {
+      "candidate_id": "cand_d134e71fee23d0df",
+      "surface_id": "SiNx_reviewed_relaxed",
+      "site": 75,
+      "reason": "More than 20% placement failures; inspect identities/clashes before retrying"
+    },
+    {
+      "candidate_id": "cand_d134e71fee23d0df",
+      "surface_id": "SiNx_reviewed_relaxed",
+      "site": 146,
+      "reason": "More than 20% placement failures; inspect identities/clashes before retrying"
+    }
+  ],
+  "calculator_calls_used": 303,
+  "elapsed_seconds": 206.7536789206788,
+  "eligible_actions": 95,
+  "policy": "adaptive",
+  "limitation": "Hand-set sampling/exploration priorities; no calibrated uncertainty or DFT accuracy claim."
+}

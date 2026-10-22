@@ -1,0 +1,86 @@
+# WARDEN evidence-acquisition agent
+
+The agent decides **which evidence to obtain next** — another molecule, site,
+reaction pathway, orientation, or a more accurate method — and we measure the
+benefit of those decisions against strong baselines under equal budgets.
+Code: `warden/decide.py` (agent), `warden/benchmark.py` (evaluation),
+`warden/process.py::stress_test` (recipe stress), `warden/kinetics.py`
+(pathways `addition`, `four_centre`, `backside`).
+
+## How it decides
+
+| Component | Implementation |
+|---|---|
+| Surface-specific chemistry | Hierarchical Gaussian belief over every barrier: candidate × amorphous site × pathway. A site's effective barrier is the minimum over pathways, so unexplored pathways keep real uncertainty. `site_robustness` bootstraps the site set to test whether the pick survives different sites. |
+| Orientations | Each starting orientation is a different path to the same site, so a leaf takes the fastest orientation per method (as `kinetics.select_best`); only repeats of one orientation are averaged. A new orientation with a method that already has the leaf is valued as beating the n tried ones with probability 1/(n+1), by about `orientation_sd_eV`; otherwise it changes nothing. Only untried orientations are offered, up to the kinetics `orientations` setting (the geometry repeats after that), so a computed path is never recomputed with the same method. Observations stored before orientations were recorded count as one orientation and occupy the lowest free ones. Cheap and reference results are paired for method error only at the same orientation. |
+| Learning across molecules | Candidates with the same reaction template share a class mean per surface, estimated from the other candidates' results (empirical Bayes; `template_sd_eV` of the total `prior_sd_eV` is shared). Results on one acylating agent therefore change the expectation for the next one, and for unobserved sites of existing ones. Every library molecule is valued, not only the first. Adding one includes its first calculation and is costed as both (`new_molecule_cost` + the cheapest method), so the molecule is never added without data. A library entry's own `prior_Ea_eV` (literature-backed, checked by `lit-import`) replaces the class mean. |
+| Seeding | Only the latest kinetics record per (candidate, site set, method) seeds the belief; re-runs after code or setting changes would otherwise count the same barriers twice. |
+| Method reliability | Per-method noise **and** systematic bias per (surface, template), learned separately for barriers and reaction energies from results paired with the reference method. Cheap results are bias-corrected; residual bias does not average away, so escalation is valued only when cheap results cannot separate the leaders. |
+| Agent decisions | Each step values every action by knowledge gradient on the dose-window feasibility margin + decision-relevant uncertainty (P(top two) × P(leaf sets the window) × expected drop in the leaf's posterior sd from this result, computed with the same update as real data, so bias floors and the fastest-orientation rule are respected), × learned success probability (empirical-Bayes per method/template/pathway/site type, decaying on retries), ÷ cost. Stops at P(correct selection) ≥ 0.95 or when nothing is worth its cost. Every decision is logged with its reason and alternatives. |
+| Process prediction | `posterior_design` runs the uncertainty-aware process design on posterior barriers, then `stress_test` sweeps cap loss, incomplete re-passivation (theta_max), slower re-passivation, unwanted oxide inhibition and oxide-cap persistence. |
+| Budget | `decide --total-budget` caps spending over all runs on one database; spending is stored as it happens, so a killed job keeps its charge. |
+| Evaluation | `warden benchmark`: synthetic worlds with hidden barriers, a shared mean per reaction template, orientation-dependent excess barriers, template-dependent method biases and failure rates. `--library-size N` adds molecules only the agent can add; `warden_voi_no_sharing` is the agent without learning across molecules. All policies share the same inference and pick rule; only acquisition differs. |
+
+## Commands
+
+```bash
+env -u PYTHONPATH python -m pytest -q
+python -m warden benchmark --worlds 40 --budget 40           # equal-budget comparison
+python -m warden benchmark --worlds 40 --budget 40 --library-size 6 --policies warden_voi warden_voi_no_sharing
+python -m warden decide --db <db> --sites gas --budget 10 --dry-run   # what to compute next, and why
+python -m warden decide --db <db> --sites gas --budget 6              # run it (xTB, live)
+python -m warden decide --db <db> --sites manifest --manifest <m.json> --library examples/seeds-v3-acylation.json
+```
+
+Reports: `<out>/decisions.md` and `decisions.json` (decision trace, method
+bias table, failure model, site robustness, process recipe, stress test).
+
+## Benchmark results (40 synthetic worlds per budget, seed 0; paired regret reduction in decades, ± s.e.; positive = agent better)
+
+Worlds include a shared mean per reaction template and orientation-dependent
+excess barriers. Reproduce with `python -m warden benchmark --worlds 40 --budget B`.
+
+| Budget | vs exhaustive cheap | vs screen-then-verify | vs uncertainty sampling | vs random | Agent compute used |
+|---:|---:|---:|---:|---:|---:|
+| 20 | **+2.45 ± 0.74** | **+0.83 ± 0.40** | +0.62 ± 0.41 | +1.25 ± 0.69 | 96% |
+| 40 | **+1.50 ± 0.49** | **+1.21 ± 0.46** | +0.24 ± 0.26 | **+1.49 ± 0.58** | 91% |
+| 80 | -0.10 ± 0.09 | **+1.11 ± 0.42** | -0.05 ± 0.11 | **+3.29 ± 0.88** | 84% |
+
+Reading: the agent beats the workflow baselines at tight budgets and matches
+exhaustive screening and uncertainty sampling at large budgets with ~16% less
+compute. Its edge over uncertainty sampling is not significant at any budget.
+
+**Learning across molecules (`template_sd_eV`) shows no measurable benefit here.**
+The agent without it (`warden_voi_no_sharing`) has regret lower by 0.25 ± 0.21,
+0.07 ± 0.12 and 0.10 ± 0.09 decades at budgets 20/40/80, and by 0.06 ± 0.52 with
+a 6-molecule library at budget 40 (`--library-size 6`); none is significant.
+With 4-6 molecules per world, shrinking toward a class mean blurs differences
+within the class about as much as it helps unmeasured molecules. It is kept
+because it stops the agent from favouring a class that has repeatedly failed
+(see tests); its value should be re-measured on real campaigns with more
+molecules per class, and `template_sd_eV: 1e-6` in the `decide` config turns it off.
+
+These are tests of acquisition strategy on synthetic worlds, not chemical evidence.
+
+## Live run (GFN2-xTB, gas-phase sites, budget 6)
+
+Seeded with the earlier kinetics screen, the agent chose to test untried
+pathways on the silanol site for the three leading candidates (an alternative
+oxide pathway with a lower barrier would erase selectivity). All six
+calculations failed (unresolved band, unconverged band, SCF failures, product
+not formed); the agent lowered its success estimates after each failure and
+switched orientation rather than repeating. With the empirical-Bayes prior its
+next-action success estimates are now <= 22%, which makes the limiting factor
+explicit: the NEB backend, not the decision logic. A more robust
+transition-state method is the highest-value addition.
+
+## Limitations
+
+- Gaussian belief with stated priors; leaf data enter the hyper-mean slightly
+  twice (standard empirical-Bayes approximation).
+- Taking the lowest orientation is biased low by the noise of the method; the
+  class mean is shrunk toward `prior_mean_eV` with few molecules per class.
+- Bias is shared per (method, surface, template); cross-candidate bias
+  correlation is ignored, which makes P(correct selection) conservative.
+- No DFT backend is wired for live runs; `dft` exists in the benchmark and as
+  a method an external result import can supply.

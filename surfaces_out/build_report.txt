@@ -1,0 +1,4 @@
+AS-ALD surface build report
+mode=full n_bulk=3 dtype=float32 gate=True
+
+=== Building SiO2 (mode=full, n_bulk=3) ===

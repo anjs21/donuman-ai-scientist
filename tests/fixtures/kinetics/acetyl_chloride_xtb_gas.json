@@ -1,0 +1,198 @@
+{
+ "candidate_id": "cand_3854ce1278ff7b78",
+ "id": "0e05872276d5d5e5384429819b7a9f995c1797c85ccfccbb42f5c17b223752f1",
+ "limitation": "Single-method barriers on finite models; not a measured rate.",
+ "mass_amu": 78.49499999999999,
+ "method": "xtb",
+ "name": "acetyl chloride",
+ "role": "inhibitor",
+ "sites": [
+  {
+   "Ea_eV": 0.36722988533153966,
+   "attempts": [
+    {
+     "Ea_eV": 0.36722988533153966,
+     "dE_rxn_eV": -1.0246926011473079,
+     "e_reactant_complex_eV": -588.8556547793262,
+     "image_clash": false,
+     "max_image_jump_eV": 0.9512857754335755,
+     "orientation": 0,
+     "path": "paths/cand_3854ce1278ff7b78_gas_NH2_0.extxyz",
+     "precomplex_image": 1,
+     "precomplex_shift_eV": -0.008577988187312258,
+     "profile_eV": [
+      -2.927095010818448e-09,
+      -0.008577988187312258,
+      0.01391357981992769,
+      0.3586518971442274,
+      -0.5926338782893481,
+      -0.8638890516356241,
+      -0.9952413669367388,
+      -1.0423858618072472,
+      -1.0332705893346201
+     ],
+     "status": "valid",
+     "stepwise_indication": false,
+     "ts_image": 3
+    },
+    {
+     "orientation": 1,
+     "reason": "SCF not converged in 250 cycles",
+     "status": "failed"
+    }
+   ],
+   "dE_rxn_eV": -1.0246926011473079,
+   "label": "gas:NH2",
+   "material": "SiNx",
+   "method": "xtb",
+   "population": 1,
+   "precomplex_binding_eV": -0.16990378135994888,
+   "site_type": "NH2",
+   "status": "valid",
+   "stepwise_indication": false
+  },
+  {
+   "Ea_eV": null,
+   "attempts": [
+    {
+     "Ea_eV": 5.257796831981523,
+     "dE_rxn_eV": -1.0407477427148706,
+     "e_reactant_complex_eV": -664.5720212314885,
+     "image_clash": false,
+     "max_image_jump_eV": 5.18304228101033,
+     "orientation": 0,
+     "path": "paths/cand_3854ce1278ff7b78_gas_NH_bridge_0.extxyz",
+     "precomplex_image": 0,
+     "precomplex_shift_eV": -5.84548160986742e-08,
+     "profile_eV": [
+      -5.84548160986742e-08,
+      0.03444702425406376,
+      0.08523390091750116,
+      4.662000095779604,
+      5.257796773526707,
+      0.07475449251637656,
+      1.1054765119858985,
+      -0.7820087876048092,
+      -1.0407478011696867
+     ],
+     "status": "band_unresolved",
+     "stepwise_indication": true,
+     "ts_image": 4
+    },
+    {
+     "Ea_eV": 0.041796175142280845,
+     "dE_rxn_eV": -1.0913027801046837,
+     "e_reactant_complex_eV": -664.5902762761337,
+     "image_clash": false,
+     "max_image_jump_eV": 0.5452204181755178,
+     "orientation": 1,
+     "path": "paths/cand_3854ce1278ff7b78_gas_NH_bridge_1.extxyz",
+     "precomplex_image": 0,
+     "precomplex_shift_eV": -1.1690417522913776e-08,
+     "profile_eV": [
+      -1.1690417522913776e-08,
+      0.012262112157941374,
+      0.008716015180311842,
+      0.04179616345186332,
+      -0.5034242547236545,
+      -0.8969089454028563,
+      -1.0060652996210138,
+      -1.0668076660355155,
+      -1.0913027917951013
+     ],
+     "status": "no_barrier_resolved",
+     "stepwise_indication": false,
+     "ts_image": 3
+    }
+   ],
+   "dE_rxn_eV": null,
+   "label": "gas:NH_bridge",
+   "material": "SiNx",
+   "method": "xtb",
+   "population": 1,
+   "precomplex_binding_eV": null,
+   "site_type": "NH_bridge",
+   "status": "failed",
+   "stepwise_indication": null
+  },
+  {
+   "Ea_eV": null,
+   "attempts": [
+    {
+     "Ea_eV": 0.01675280729955375,
+     "dE_rxn_eV": -0.46122811929774343,
+     "e_reactant_complex_eV": -607.0918716111729,
+     "image_clash": false,
+     "max_image_jump_eV": 0.2516477254905567,
+     "orientation": 0,
+     "path": "paths/cand_3854ce1278ff7b78_gas_OH_0.extxyz",
+     "precomplex_image": 2,
+     "precomplex_shift_eV": -0.01498469145224135,
+     "profile_eV": [
+      4.0074155549518764e-08,
+      -0.009461030048328212,
+      -0.01498469145224135,
+      0.0017681158473124015,
+      -0.24904596331612083,
+      -0.5006936888066775,
+      -0.5251956517464578,
+      -0.5101984014136178,
+      -0.4762128107499848
+     ],
+     "status": "no_barrier_resolved",
+     "stepwise_indication": false,
+     "ts_image": 3
+    },
+    {
+     "Ea_eV": 0.0122403178145305,
+     "dE_rxn_eV": -0.3950691845412848,
+     "e_reactant_complex_eV": -607.1067051197757,
+     "image_clash": false,
+     "max_image_jump_eV": 0.15255138356201314,
+     "orientation": 1,
+     "path": "paths/cand_3854ce1278ff7b78_gas_OH_1.extxyz",
+     "precomplex_image": 1,
+     "precomplex_shift_eV": -0.04744781545673504,
+     "profile_eV": [
+      1.6232888810918666e-08,
+      -0.04744781545673504,
+      -0.035207497642204544,
+      -0.17953226583983906,
+      -0.3278438342370009,
+      -0.4598221883957194,
+      -0.6123735719577326,
+      -0.49490031172786075,
+      -0.44251699999801986
+     ],
+     "status": "no_barrier_resolved",
+     "stepwise_indication": true,
+     "ts_image": 2
+    }
+   ],
+   "dE_rxn_eV": null,
+   "label": "gas:OH",
+   "material": "SiO2",
+   "method": "xtb",
+   "population": 1,
+   "precomplex_binding_eV": null,
+   "site_type": "OH",
+   "status": "failed",
+   "stepwise_indication": null
+  }
+ ],
+ "sites_source": "gas",
+ "smiles": "C[C:1](=O)[Cl:2]",
+ "summary": {
+  "SiNx": {
+   "Ea_max_eV": 0.36722988533153966,
+   "Ea_mean_eV": 0.36722988533153966,
+   "Ea_min_eV": 0.36722988533153966,
+   "coverage": 0.5
+  },
+  "SiO2": null
+ },
+ "surface_admission": true,
+ "surface_fingerprint": "gas_models",
+ "template": "acylation",
+ "provenance": "GFN2-xTB (tblite 0.7.0), gas-phase site models, config/v3.json kinetics settings, 2 orientations; computed 2026-10-21 for regression of barrierless classification. Statuses are as written by the pre-fix code."
+}

@@ -1,0 +1,9 @@
+[
+  {
+    "candidate_id": "REPLACE_WITH_NAME_OR_ID",
+    "source": "REPLACE_WITH_REPORT_PATH_AND_RUN_PROVENANCE",
+    "dE_GS": null,
+    "dE_NGS": null,
+    "note": "Schema example only. Replace with actual prior energies in eV; missing values stay null."
+  }
+]
