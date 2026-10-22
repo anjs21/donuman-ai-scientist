@@ -22,8 +22,27 @@ def context(store, state, tools):
             "candidates": store.all("candidate"),
             "diagnoses": diagnose(rows),
             "results": [{k: r.get(k) for k in ("candidate_id", "mode", "status", "dE_GS", "dE_NGS", "metrics", "reason")} for r in rows],
+            "kinetics": kinetic_context(store),
             "evidence": evidence, "literature_tools": tools,
             "last_error": state.get("last_error")}
+
+
+def kinetic_context(store):
+    """Compact barrier and process-window facts for the planner."""
+    assessment = store.get("assessment", "latest") or {}
+    designs = {c["candidate_id"]: c.get("design") or {} for c in assessment.get("candidates", [])}
+    out = []
+    for k in store.all("kinetics"):
+        d = designs.get(k["candidate_id"], {})
+        rec = d.get("recommended") or {}
+        out.append({"candidate_id": k["candidate_id"], "method": k["method"], "summary": k["summary"],
+                    "failed_sites": [s["label"] for s in k["sites"] if s["status"] != "valid"],
+                    "P_success": rec.get("P_success"), "recommended": {x: rec.get(x) for x in ("T_K", "dose_s", "redose_every")},
+                    "dose_windows": [{x: w[x] for x in ("T_K", "practical", "target_Ea_NGS_max_eV", "target_Ea_GS_min_eV")}
+                                     for w in d.get("dose_windows", [])],
+                    "measure_first": [m["input"] for m in d.get("measure_first", [])[:3]]})
+    return {"label": assessment.get("label"), "control_gate": (assessment.get("control_gate") or {}).get("status"),
+            "candidates": out}
 
 
 def run(store, planner, runner, config, literature=None, mode="live"):
@@ -145,11 +164,18 @@ def run(store, planner, runner, config, literature=None, mode="live"):
     return state
 
 
-def subprocess_runner(db, manifest, config_path, timeout):
+def subprocess_runner(db, manifest, config_path, timeout, kinetics=False, controls=None):
     def runner(ids, fidelity):
         command = [sys.executable, "-m", "warden", "screen", "--db", str(db),
                    "--manifest", str(manifest), "--config", str(config_path),
                    "--ids", *ids, "--fidelity", str(fidelity)]
         # The worker owns MACE; its exit frees GPU allocations before the next LLM call.
         subprocess.run(command, check=True, timeout=timeout)
+        if kinetics:
+            subprocess.run([sys.executable, "-m", "warden", "kinetics", "--db", str(db),
+                            "--config", str(config_path), "--ids", *ids, "--sites", "manifest",
+                            "--manifest", str(manifest)], check=True, timeout=timeout)
+            subprocess.run([sys.executable, "-m", "warden", "assess", "--db", str(db),
+                            "--config", str(config_path), "--out", str(Path(db).parent / "assess"),
+                            *(["--controls", str(controls)] if controls else [])], check=True, timeout=timeout)
     return runner

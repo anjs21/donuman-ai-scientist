@@ -19,3 +19,22 @@
   v2 gates. Retained their source and other legacy modules for comparison.
 
 Scientific scope and remaining limitations are documented in RUN_ORDER.md.
+
+# v3 additions
+
+- `warden/kinetics.py`: climbing-image NEB barriers on gas-phase site models and
+  on H-capped clusters carved from admitted slabs; pre-complex binding, Eyring
+  rates with Langmuir occupancy; guards for unconverged/discontinuous bands,
+  changed connectivity, re-captured protons and open-shell clusters.
+- `acylation` reaction template in candidate validation, MACE placement and the planner.
+- `warden/process.py`: multi-cycle model with redosing, cap degradation,
+  irreversible nucleation and steric shielding; Monte Carlo robust schedule
+  design, dose windows, barrier targets, input sensitivity, calibration.
+- `warden/assess.py`: control gate, method consensus, baselines and lift.
+- CLI `kinetics` and `assess`; campaign runs them when `campaign.kinetics` is set.
+- Surface validation reports coordination defects and Si-Si bonds.
+- `warden/decide.py`: evidence-acquisition agent (hierarchical belief, method bias
+  learning, empirical-Bayes failure model, knowledge-gradient + relevance values,
+  confident stopping), live xTB/MACE executor, decision reports; CLI `decide`.
+- `warden/benchmark.py`: equal-budget synthetic benchmark vs four baselines; CLI `benchmark`.
+- Selectable reaction pathways in barrier endpoints; `process.stress_test`.

@@ -79,6 +79,7 @@ def load_manifest(path, require_valid=True):
                "warnings": warnings,
                "reasons": reasons, "structural": clean(structural),
                "sites": {k: v["exposed"] for k, v in counts.items()},
+               "coordination_defects": coordination_defects(atoms),
                "vacuum_A": float(vacuum)}
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", row["id"]):
             raise ValueError("Surface ID must be a simple filename-safe identifier")
@@ -96,6 +97,28 @@ def load_manifest(path, require_valid=True):
     if require_valid and not report["valid"]:
         raise ValueError("Surface admission failed. Run validate-surfaces and inspect its report; no energies computed.")
     return report, atoms_by_id
+
+
+IDEAL_COORDINATION = {14: 4, 7: 3, 8: 2}
+SYMBOL = {14: "Si", 7: "N", 8: "O"}
+
+
+def coordination_defects(atoms, factor=1.15):
+    """Reported, not gated: under/over-coordinated atoms and homopolar Si-Si bonds."""
+    d = atoms.get_all_distances(mic=True)
+    np.fill_diagonal(d, np.inf)
+    r = covalent_radii[atoms.numbers]
+    bonds = d < factor * (r[:, None] + r[None, :])
+    out = {}
+    for z, ideal in IDEAL_COORDINATION.items():
+        idx = np.flatnonzero(atoms.numbers == z)
+        if len(idx):
+            n = bonds[idx].sum(axis=1)
+            out[SYMBOL[z]] = {"under": int((n < ideal).sum()), "over": int((n > ideal).sum()),
+                                 "fraction_defective": float((n != ideal).mean())}
+    si = np.flatnonzero(atoms.numbers == 14)
+    out["Si_Si_bonds"] = int(bonds[np.ix_(si, si)].sum() // 2)
+    return out
 
 
 def representatives(atoms, material, max_sites):

@@ -18,9 +18,16 @@ New candidates must have molecular SMILES, a hypothesis, falsification, and
 exact quotes referencing evidence IDs supplied in context. State whether the
 proposal is a literature-tested molecule or an extrapolated analog. Evidence
 for a related molecule is not evidence of the analog's measured performance.
-Allowed mechanisms: physisorption, or silyl_substitution: one Si-Cl or Si-N
-bond, with [Si:1] and leaving atom :2 in SMILES. Other mechanisms need future
-implementation. Use neutral closed-shell molecules only. Do not submit code.
+Allowed mechanisms: physisorption; silyl_substitution: one Si-Cl or Si-N
+bond, with [Si:1] and leaving atom :2 in SMILES; or acylation: a carbonyl
+carbon [C:1] with leaving atom :2 (Cl, O or N) that caps surface N-H/O-H as an
+amide/ester. Other mechanisms need future implementation. Use neutral
+closed-shell molecules only. Do not submit code.
+Selectivity can be kinetic: compare kinetics barriers (Ea, eV) on SiO2 and SiNx.
+A large barrier difference is not enough; the dose window must fall inside
+practical dose times. Each kinetic summary states target_Ea_NGS_max_eV and
+target_Ea_GS_min_eV; steer reactivity (leaving group, sterics, electronics)
+toward that band, and use measure_first to explain what limits confidence.
 Choose search to fill evidence gaps; propose for new molecules; refine for
 more representative sites/conformers; finish when no useful action remains.
 Avoid repeatedly choosing near-identical molecules. Computational failures
@@ -35,7 +42,7 @@ SCHEMA = {"type": "object", "additionalProperties": False,
                                         "items": {"type": "object", "additionalProperties": False,
                                           "properties": {
                                             "name": {"type": "string"}, "smiles": {"type": "string"},
-                                            "template": {"enum": ["physisorption", "silyl_substitution"]},
+                                            "template": {"enum": ["physisorption", "silyl_substitution", "acylation"]},
                                             "role": {"enum": ["inhibitor"]},
                                             "hypothesis": {"type": "string"}, "falsification": {"type": "string"},
                                             "evidence": {"type": "array", "minItems": 1, "items": {
