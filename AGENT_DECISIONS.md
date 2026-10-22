@@ -35,23 +35,32 @@ python -m warden decide --db <db> --sites manifest --manifest <m.json> --library
 Reports: `<out>/decisions.md` and `decisions.json` (decision trace, method
 bias table, failure model, site robustness, process recipe, stress test).
 
-## Benchmark results (40 synthetic worlds per budget; paired regret reduction, decades, ± s.e.)
+## Benchmark results (40 synthetic worlds per budget, seed 0; paired regret reduction in decades, ± s.e.; positive = agent better)
 
-| Budget | vs exhaustive cheap | vs screen-then-verify | vs uncertainty sampling | Agent compute used |
-|---:|---:|---:|---:|---:|
-| 20 | **+3.01 ± 0.78** | **+2.06 ± 0.63** | -0.13 ± 0.45 | 92% |
-| 40 | **+1.70 ± 0.54** | **+1.70 ± 0.60** | -0.23 ± 0.36 | 84% |
-| 80 | +0.06 ± 0.17 | **+1.49 ± 0.41** | +0.16 ± 0.12 | 76% |
+Worlds include a shared mean per reaction template and orientation-dependent
+excess barriers. Reproduce with `python -m warden benchmark --worlds 40 --budget B`.
 
-After switching the failure prior to empirical Bayes (needed for realistic live
-behaviour), budget 40 gives +1.46 ± 0.59, +1.46 ± 0.67 and -0.47 ± 0.40.
+| Budget | vs exhaustive cheap | vs screen-then-verify | vs uncertainty sampling | vs random | Agent compute used |
+|---:|---:|---:|---:|---:|---:|
+| 20 | **+2.45 ± 0.74** | **+0.83 ± 0.40** | +0.62 ± 0.41 | +1.25 ± 0.69 | 96% |
+| 40 | **+1.50 ± 0.49** | **+1.21 ± 0.46** | +0.24 ± 0.26 | **+1.49 ± 0.58** | 91% |
+| 80 | -0.10 ± 0.09 | **+1.11 ± 0.42** | -0.05 ± 0.11 | **+3.29 ± 0.88** | 84% |
 
-Reading: the agent clearly beats workflow-style baselines (screen everything
-cheaply; screen then verify the top two with the reference method) at tight
-budgets, and matches exhaustive screening at large budgets with ~25% less
-compute. It does **not** beat uncertainty sampling on decision quality; it
-matches it while stopping earlier and explaining each choice. These are tests
-of acquisition strategy on synthetic worlds, not chemical evidence.
+Reading: the agent beats the workflow baselines at tight budgets and matches
+exhaustive screening and uncertainty sampling at large budgets with ~16% less
+compute. Its edge over uncertainty sampling is not significant at any budget.
+
+**Learning across molecules (`template_sd_eV`) shows no measurable benefit here.**
+The agent without it (`warden_voi_no_sharing`) has regret lower by 0.25 ± 0.21,
+0.07 ± 0.12 and 0.10 ± 0.09 decades at budgets 20/40/80, and by 0.06 ± 0.52 with
+a 6-molecule library at budget 40 (`--library-size 6`); none is significant.
+With 4-6 molecules per world, shrinking toward a class mean blurs differences
+within the class about as much as it helps unmeasured molecules. It is kept
+because it stops the agent from favouring a class that has repeatedly failed
+(see tests); its value should be re-measured on real campaigns with more
+molecules per class, and `template_sd_eV: 1e-6` in the `decide` config turns it off.
+
+These are tests of acquisition strategy on synthetic worlds, not chemical evidence.
 
 ## Live run (GFN2-xTB, gas-phase sites, budget 6)
 
@@ -71,8 +80,6 @@ transition-state method is the highest-value addition.
   twice (standard empirical-Bayes approximation).
 - Taking the lowest orientation is biased low by the noise of the method; the
   class mean is shrunk toward `prior_mean_eV` with few molecules per class.
-- The benchmark table below predates the orientation and class-sharing changes;
-  synthetic worlds now include orientation effects (`orientation_sd_eV`).
 - Bias is shared per (method, surface, template); cross-candidate bias
   correlation is ignored, which makes P(correct selection) conservative.
 - No DFT backend is wired for live runs; `dft` exists in the benchmark and as
