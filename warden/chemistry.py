@@ -1,5 +1,7 @@
-"""Data-driven candidates: intact adsorption, one Si--Cl/Si--N substitution, or
-one acyl substitution (C(=O)--X + surface N-H/O-H -> amide/ester + HX).
+"""Data-driven candidates: intact adsorption, one Si--Cl/Si--N substitution,
+one acyl substitution (C(=O)--X + surface N-H/O-H -> amide/ester + HX), or an
+aldehyde/ketone that adds across its C=O and, at a surface NH2, condenses to
+the imine (Si-NH2 + R2C=O -> Si-N=CR2 + H2O).
 
 The agent supplies structures, not executable Python. Only neutral closed-shell
 molecules and the explicitly supported mechanisms enter screening.
@@ -20,13 +22,18 @@ SUBSTITUTION = {"silyl_substitution": ("Si", {"Cl", "N"}),
                 "acylation": ("C", {"Cl", "O", "N"})}
 # Addition templates: surface X-H adds across [C:1]=[O:2]; X bonds to the
 # carbonyl carbon and the proton moves to the oxygen (aldehyde/ketone + Si-NH2
-# -> hemiaminal, + Si-OH -> hemiacetal). Nothing leaves; a later dehydration to
-# an imine is a separate step and is not modelled.
-ADDITION = {"carbonyl_addition": ("C", "O")}
+# -> hemiaminal, + Si-OH -> hemiacetal). Nothing leaves; carbonyl_addition stops there.
+ADDITION = {"carbonyl_addition": ("C", "O"), "imine_condensation": ("C", "O")}
+# Condensation templates: at the listed site types the adduct also loses water,
+# taking O and both N-H protons (Si-NH2 + R2C=O -> Si-N=CR2 + H2O), as the
+# aldehyde literature reports for SiNx. Other sites (Si-OH, Si2N-H) cannot
+# form a neutral C=X double bond and stop at the addition product.
+CONDENSATION = {"imine_condensation": {"NH2"}}
 # Templates that form one covalent bond to a surface heteroatom and consume its proton.
 ATTACHING = {*SUBSTITUTION, *ADDITION}
 TEMPLATES = {"physisorption", *ATTACHING}
 H_LENGTH = {"Cl": 1.28, "N": 1.02, "O": 0.97}
+WATER = [[0., 0., 0.], [0.757, 0.586, 0.], [-0.757, 0.586, 0.]]
 SP3_TILT = np.radians(180 - 109.47)   # C-O against the surface normal once C-X forms
 # A quote must be a real passage, not a word that occurs in any text.
 MIN_QUOTE_WORDS = 5
@@ -102,9 +109,11 @@ def validate_candidate(spec, evidence=None, require_evidence=False):
         item = (evidence or {}).get(ref.get("id"))
         quote = ref.get("quote") or ""
         # Matched on the readable text (escapes, subscripts, typographic quotes normalised).
-        if item is None or not quote or not quote_in(quote, item["text"]):
-            raise ValueError("Evidence quote is absent from the retrieved source record "
-                             "(quotes must be verbatim, at least 12 characters)")
+        if item is None:
+            raise ValueError(f"Evidence id {ref.get('id')!r} is not in the evidence records")
+        if not quote or not quote_in(quote, item["text"]):
+            raise ValueError(f"Quote for {ref['id']} is absent from that record (quotes must be "
+                             f"verbatim, at least 12 characters): {quote[:80]!r}")
         if len(quote.split()) < MIN_QUOTE_WORDS:
             raise ValueError(f"Evidence quote must be at least {MIN_QUOTE_WORDS} words of the source")
     if require_evidence and (not spec.get("hypothesis") or not spec.get("falsification")):
@@ -190,7 +199,19 @@ def addition_frame(symbols, positions, anchor, acceptor, h_length=0.97):
     return best, proton
 
 
-def geometries(spec, n_conformers=3, seed=42):
+def site_products(template, site_type):
+    """Product templates scored at a site: the condensed product only where the
+    site can condense, and always the addition product it passes through."""
+    if template in CONDENSATION:
+        return ["carbonyl_addition"] + ([template] if site_type in CONDENSATION[template] else [])
+    return [template]
+
+
+def geometries(spec, n_conformers=3, seed=42, condensed=False):
+    """Gas molecule, surface fragment and byproduct per conformer; condensed=True
+    gives the imine (C=N to the surface, H2O released) of a condensation template."""
+    if condensed and spec["template"] not in CONDENSATION:
+        raise ValueError(f"{spec['template']} has no condensed product")
     mol = Chem.AddHs(Chem.MolFromSmiles(spec["smiles"]))
     params = AllChem.ETKDGv3()
     params.randomSeed = int(seed)
@@ -214,6 +235,18 @@ def geometries(spec, n_conformers=3, seed=42):
                 frag_pos = frag_pos @ rotation(outward, [0, 0, 1]).T
             fragment.positions = frag_pos
             byproduct = None
+        elif condensed:
+            # C=O becomes C=N to the surface N: the old C=O axis points at the
+            # surface, which leaves the carbon's two substituents sp2-planar.
+            oxygen = next(a.GetIdx() for a in mol.GetAtoms() if a.GetAtomMapNum() == 2)
+            indices = [anchor] + [i for i in range(len(symbols)) if i not in (anchor, oxygen)]
+            fragment = whole[indices]
+            bond_dir = pos[oxygen] - pos[anchor]
+            fragment.positions = (fragment.positions - pos[anchor]) @ rotation(bond_dir, [0, 0, -1]).T
+            byproduct = Atoms("OH2", positions=WATER)
+            lhs = Counter(symbols); lhs["H"] += 2
+            if lhs != Counter(fragment.get_chemical_symbols()) + Counter(byproduct.get_chemical_symbols()):
+                raise ValueError("Reaction is not element-balanced")
         elif spec["template"] in ADDITION:
             # The whole molecule stays; the surface proton joins it on the carbonyl O.
             acceptor = next(a.GetIdx() for a in mol.GetAtoms() if a.GetAtomMapNum() == 2)
@@ -247,7 +280,7 @@ def geometries(spec, n_conformers=3, seed=42):
         bonds = [(inverse[b.GetBeginAtomIdx()], inverse[b.GetEndAtomIdx()])
                  for b in mol.GetBonds()
                  if b.GetBeginAtomIdx() in inverse and b.GetEndAtomIdx() in inverse]
-        if spec["template"] in ADDITION:
+        if spec["template"] in ADDITION and not condensed:
             bonds.append((inverse[acceptor], len(indices)))   # new O-H
         molecule_bonds = [(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()]
         output.append({"molecule": whole, "fragment": fragment,

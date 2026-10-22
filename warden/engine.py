@@ -13,7 +13,7 @@ from ase.data import covalent_radii
 from ase.geometry import find_mic
 from ase.io import write
 from ase.optimize import BFGS
-from .chemistry import ATTACHING, SUBSTITUTION, geometries, rotation
+from .chemistry import ATTACHING, CONDENSATION, geometries, rotation, site_products
 from .common import digest, file_hash, clean
 from .metrics import evaluate
 from .surfaces import representatives
@@ -27,7 +27,8 @@ DEFAULTS = {"max_sites": 2, "n_conformers": 3, "orientations": 4,
 # Anchor--surface heteroatom bond lengths used for initial placement (Angstrom).
 BOND_LENGTH = {("silyl_substitution", 8): 1.65, ("silyl_substitution", 7): 1.75,
                ("acylation", 8): 1.43, ("acylation", 7): 1.47,
-               ("carbonyl_addition", 8): 1.43, ("carbonyl_addition", 7): 1.47}
+               ("carbonyl_addition", 8): 1.43, ("carbonyl_addition", 7): 1.47,
+               ("imine_condensation", 7): 1.28}   # C=N
 
 
 def calculator(config):
@@ -101,11 +102,12 @@ def place(slab, site, geo, template, orientation, total):
     if template in ATTACHING:
         h = [i for i, n in enumerate(slab.numbers) if n == 1 and
              slab.get_distance(site, i, mic=True) < 1.25 * (covalent_radii[n] + covalent_radii[slab.numbers[site]])]
-        if not h:
+        protons = 2 if template in CONDENSATION else 1   # the imine N keeps no H
+        if len(h) < protons:
             raise ValueError("no_surface_proton")
-        removed = min(h, key=lambda i: slab.get_distance(site, i, mic=True))
+        removed = sorted(h, key=lambda i: slab.get_distance(site, i, mic=True))[:protons]
         del atoms[removed]
-        site = site - int(removed < site)
+        site = site - sum(r < site for r in removed)
         height = BOND_LENGTH[template, site_element]
     else:
         height = 2.8 + .4 * (orientation % 2)
@@ -147,25 +149,40 @@ def screen(candidate, surface_report, atoms_by_id, config, calc, artifact_dir):
     if type(calc).__name__ == "LennardJones":
         raise ValueError("Nonphysical calculator is prohibited")
     output = Path(artifact_dir); output.mkdir(parents=True, exist_ok=True)
+    template = candidate["template"]
     geos = geometries(candidate, config["n_conformers"], config["seed"])
-    gas_energies, by_energies, gas_failures = [], [], []
-    for g in geos:
+    # Product template -> geometries. A condensation template also scores the
+    # addition product, which is as far as sites without an NH2 can react.
+    products = {template: geos}
+    if template in CONDENSATION:
+        products = {"carbonyl_addition": geos,
+                    template: geometries(candidate, config["n_conformers"], config["seed"], condensed=True)}
+    gas_energies, gas_failures = [], []
+    by_energies = {kind: [] for kind in products}
+    for ci, g in enumerate(geos):
         try:
             molecule = g["molecule"].copy(); molecule.center(vacuum=8)
             _, energy, _ = relax(molecule, calc, config, g["molecule_bonds"])
             gas_energies.append(energy)
-            if g["byproduct"] is not None:
-                by = g["byproduct"].copy(); by.center(vacuum=8)
-                _, by_energy, _ = relax(by, calc, config, graph(by))
-                by_energies.append(by_energy)
         except Exception as exc:
             gas_failures.append(str(exc))
-    if not gas_energies or (candidate["template"] in SUBSTITUTION and not by_energies):
+            continue
+        for kind, kind_geos in products.items():
+            by = kind_geos[ci]["byproduct"]
+            if by is None:
+                continue
+            try:
+                by = by.copy(); by.center(vacuum=8)
+                by_energies[kind].append(relax(by, calc, config, graph(by))[1])
+            except Exception as exc:
+                gas_failures.append(str(exc))
+    released = {kind for kind, kind_geos in products.items() if kind_geos[0]["byproduct"] is not None}
+    if not gas_energies or any(not by_energies[kind] for kind in released):
         return {"candidate_id": candidate["id"], "mode": "mace", "status": "failed",
                 "reason": "gas_reference_failed", "failures": gas_failures,
                 "dE_GS": None, "dE_NGS": None}
     e_molecule = min(gas_energies)
-    e_byproduct = min(by_energies) if by_energies else 0.
+    e_byproduct = {kind: min(v) if v else 0. for kind, v in by_energies.items()}
     sites = []
     for surface in surface_report["surfaces"]:
         slab = atoms_by_id[surface["id"]]
@@ -181,28 +198,32 @@ def screen(candidate, surface_report, atoms_by_id, config, calc, artifact_dir):
                 bare, e_bare, _ = relax(bare, calc, config)
                 # Comparable local relaxation of bare and covered substrates.
                 successes = []
-                for ci, geo in enumerate(geos):
-                    for oi in range(config["orientations"]):
-                        attempt = {"conformer": ci, "orientation": oi}
-                        try:
-                            product, mapped_site, n_sub = place(bare, site, geo, candidate["template"], oi, config["orientations"])
-                            freeze_region(product, bare.positions[site], config["active_radius_A"], n_sub)
-                            product, e_product, fmax = relax(product, calc, config)
-                            check_product(product, n_sub, mapped_site, geo, candidate["template"])
-                            de = e_product + e_byproduct - e_bare - e_molecule
-                            if abs(de) > config["energy_review_limit_eV"]:
-                                raise ValueError("energy_requires_review_not_a_universal_physics_cutoff")
-                            filename = output / f"{surface['id']}_{site}_{ci}_{oi}.extxyz"
-                            write(filename, product)
-                            attempt.update(status="valid", energy_eV=de, max_force=fmax,
-                                           geometry=str(filename.resolve()))
-                            successes.append(de)
-                        except Exception as exc:
-                            attempt.update(status="failed", reason=str(exc))
-                        record["attempts"].append(attempt)
+                for kind in site_products(template, representative["site_type"]):
+                    prefix = f"{kind}_" if len(products) > 1 else ""
+                    for ci, geo in enumerate(products[kind]):
+                        for oi in range(config["orientations"]):
+                            attempt = {"product": kind, "conformer": ci, "orientation": oi}
+                            try:
+                                product, mapped_site, n_sub = place(bare, site, geo, kind, oi, config["orientations"])
+                                freeze_region(product, bare.positions[site], config["active_radius_A"], n_sub)
+                                product, e_product, fmax = relax(product, calc, config)
+                                check_product(product, n_sub, mapped_site, geo, kind)
+                                de = e_product + e_byproduct[kind] - e_bare - e_molecule
+                                if abs(de) > config["energy_review_limit_eV"]:
+                                    raise ValueError("energy_requires_review_not_a_universal_physics_cutoff")
+                                filename = output / f"{surface['id']}_{site}_{prefix}{ci}_{oi}.extxyz"
+                                write(filename, product)
+                                attempt.update(status="valid", energy_eV=de, max_force=fmax,
+                                               geometry=str(filename.resolve()))
+                                successes.append((de, kind))
+                            except Exception as exc:
+                                attempt.update(status="failed", reason=str(exc))
+                            record["attempts"].append(attempt)
                 if successes:
-                    record.update(status="valid", energy_eV=min(successes),
-                                  placement_spread_eV=float(np.ptp(successes)))
+                    # The site ends in its most stable reachable product.
+                    best, kind = min(successes)
+                    record.update(status="valid", energy_eV=best, product=kind,
+                                  placement_spread_eV=float(np.ptp([de for de, k in successes if k == kind])))
             except Exception as exc:
                 record["reason"] = str(exc)
             sites.append(record)

@@ -23,7 +23,7 @@ from ase.neighborlist import NeighborList
 from ase.optimize import BFGS, FIRE
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from .chemistry import ADDITION, ATTACHING, H_LENGTH, SUBSTITUTION, addition_frame, rotation
+from .chemistry import ADDITION, ATTACHING, CONDENSATION, H_LENGTH, SUBSTITUTION, addition_frame, rotation
 from .common import clean
 
 KB_EV = 8.617333262e-5
@@ -36,11 +36,15 @@ STRUCTURE_FACTOR = 1.15
 CAP_LENGTH = {14: 1.48, 8: 0.97, 7: 1.01, 6: 1.09}
 BOND_LENGTH = {("silyl_substitution", 8): 1.65, ("silyl_substitution", 7): 1.75,
                ("acylation", 8): 1.36, ("acylation", 7): 1.38,
-               ("carbonyl_addition", 8): 1.43, ("carbonyl_addition", 7): 1.47}
+               ("carbonyl_addition", 8): 1.43, ("carbonyl_addition", 7): 1.47,
+               ("imine_condensation", 8): 1.43, ("imine_condensation", 7): 1.47}
 PATHWAYS = {"acylation": ("addition", "four_centre"),
             "silyl_substitution": ("four_centre", "backside"),
             # Concerted X-H...O=C ring (proton to O as X-C forms) or perpendicular attack.
-            "carbonyl_addition": ("four_centre", "addition")}
+            "carbonyl_addition": ("four_centre", "addition"),
+            # Barriers are for the addition step only; the dehydration that follows
+            # at NH2 sites needs its own transition state and is not computed.
+            "imine_condensation": ("four_centre", "addition")}
 GAS_SITES = {"SiNx": {"NH2": "[SiH3][NH2:1]", "NH_bridge": "[SiH3][NH:1][SiH3]"},
              "SiO2": {"OH": "[SiH3][OH:1]"}}
 
@@ -545,7 +549,9 @@ def screen_kinetics(spec, sites, config, artifact_dir):
                   "template": spec["template"], "role": spec.get("role", "inhibitor"),
                   "method": config["method"], "mass_amu": molecular_mass(spec), "sites": rows,
                   "summary": summarize(rows),
-                  "limitation": "Single-method barriers on finite models; not a measured rate."})
+                  "limitation": "Single-method barriers on finite models; not a measured rate."
+                                + (" Addition step only; the dehydration to the imine is not computed."
+                                   if spec["template"] in CONDENSATION else "")})
 
 
 def summarize(rows):

@@ -156,6 +156,15 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
   backends; shared `Backend.plan/critique`. Legacy `llm` configs still mean Ollama.
 - Campaign logs `llm_backends` and `llm_usage` events. CLI `llm-check`.
 - `config/v3-openai.json`, `config/v3-hybrid.json`; `tests/test_llm.py` (mock server).
+- Fixes from campaign runs: OpenAI gets a single root-object schema (it rejects a
+  root `anyOf`); config-class API errors stop the campaign resumably
+  (`stopped_backend_error`); an invalid reply gets one corrected retry within the
+  step, with a one-line error (`previous_reply_error`); analogs/refine accept a
+  one-item `candidate_ids`; results carry `computed_preference`; only actions
+  with a backend and budget left are offered; an identical analog request is
+  refused without spending budget; quote matching ignores end punctuation, and
+  its error names the evidence id; analogs/refine/repair are hidden until a
+  candidate exists; empty optional reply fields are dropped before validation.
 
 # MACE foundation checkpoints
 
@@ -165,3 +174,23 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
   overwrites without --force, requires --accept-license for ASL models, writes
   `<file>.provenance.json`; `--verify` loads it and evaluates NH3.
   Default destination `models/mace.model` (what `config/*.json` resolve to).
+
+# Imine condensation template
+
+- `imine_condensation` (aldehyde/ketone SMILES as for `carbonyl_addition`): at
+  surface NH2 the site scores both the hemiaminal and the imine
+  (Si-NH2 + R2C=O -> Si-N=CR2 + H2O, both N-H protons leave with the carbonyl O)
+  and keeps the more stable; Si-OH and Si2N-H sites cannot condense and score
+  the addition product. Each site records which `product` it ended in.
+  `carbonyl_addition` is unchanged.
+- Kinetics for the template is the addition step (same pathways as
+  `carbonyl_addition`); the dehydration transition state is not computed and
+  the record's `limitation` says so.
+- Screening energies are electronic (as for every template). Condensation keeps
+  the number of gas molecules (aldehyde in, water out) while addition removes
+  one, so an entropy correction would favour the imine; it is not applied.
+- Known limitation (checked on gas-phase models, best of 4 conformers): MACE-MATPES-r2SCAN-0
+  puts tBuCHO + MeNH2 -> imine + H2O at +0.66 eV and the silylamine analogue at
+  +1.06 eV, where GFN2-xTB gives -0.34 and 0.00 eV. Ordinary imine formation is
+  not that uphill, so MACE imine energies (and the +1.1-1.8 eV NH2-site imines
+  on SiNx_kim_1) need a higher-level reference before they are trusted.

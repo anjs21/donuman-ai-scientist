@@ -31,11 +31,14 @@ bond, with [Si:1] and leaving atom :2 in SMILES; or acylation: a carbonyl
 carbon [C:1] with leaving atom :2 (Cl, O or N) that caps surface N-H/O-H as an
 amide/ester; or carbonyl_addition: an aldehyde/ketone with the carbonyl carbon
 [C:1] and its oxygen [O:2] (e.g. CC(C)(C)[CH:1]=[O:2]); surface N-H/O-H adds
-across C=O (hemiaminal/hemiacetal; the later dehydration to an imine is not
-modelled). Other mechanisms need future implementation. Use neutral
-closed-shell molecules only. Do not submit code.
-SMILES rules: map exactly the anchor (:1) and, for substitution/acylation, the
-leaving atom (:2); write every other atom unmapped and unbracketed. A bracketed
+across C=O (hemiaminal/hemiacetal) and stops there; or imine_condensation: the
+same aldehyde/ketone SMILES, but at surface NH2 the adduct may also lose water
+to the imine (Si-N=CR2 + H2O), as the aldehyde-on-SiNx literature reports;
+Si-OH and Si2N-H sites cannot condense and stop at the adduct. Its kinetics
+barriers cover the addition step only. Other mechanisms need future
+implementation. Use neutral closed-shell molecules only. Do not submit code.
+SMILES rules: map exactly the anchor (:1) and the leaving atom, or for an
+aldehyde/ketone the carbonyl O (:2); write every other atom unmapped and unbracketed. A bracketed
 atom must state its hydrogens ([CH:1], [SiH2:1]). No groups inside brackets.
 "name" is a chemical name, never a SMILES. Format examples only -- these are
 known molecules or controls (DMATMS caps the oxide); do not propose them unchanged:
@@ -56,11 +59,12 @@ Actions:
   its inputSchema (e.g. semantic_search_papers with source=chemrxiv). Mine the
   results for named molecules tested as AS-ALD inhibitors on SiO2/SiNx or similar
   OH/NH surfaces. Do not repeat a search listed in literature.searches_done.
-- analogs: ask the analog designer for variants of candidate_id in a direction
-  (more_reactive, less_reactive, bulkier, all). It returns quotable design lines
+- analogs: ask the analog designer for variants of one candidate (candidate_id)
+  in a direction: how the molecule should change (more_reactive, less_reactive,
+  bulkier, all). It returns quotable design lines
   as evidence; propose an analog by quoting its line, labelled as extrapolation.
 - propose: register new molecules (each with predicted_direction).
-- refine: more representative sites/conformers for candidate_id.
+- refine: more representative sites/conformers for one candidate (candidate_id).
 - repair: when kinetics shows failed_sites or agent_ranking is not
   confident, let the evidence-acquisition agent retry those barriers
   (candidate_ids, optional budget). Use it before judging a candidate.
@@ -71,6 +75,10 @@ treat it as the computed ranking, do not contradict it, and prefer proposals
 that address why the leaders fall short.
 Read the notebook first: it records what was already tried and why it failed,
 and hypotheses shows which predictions the computations support or refute.
+results[].computed_preference is the sign of the computed binding contrast; state
+it as computed, even where it disagrees with the literature or earlier lessons
+(that disagreement is itself a finding). previous_reply_error, when present,
+says why your last reply was rejected: fix that.
 Add a one-sentence lesson when you learn something that should change later
 choices. Avoid repeatedly choosing near-identical molecules. Computational
 failures require a repair/refinement or an unresolved label, not a chemical
@@ -90,7 +98,8 @@ SCHEMA = {"type": "object", "additionalProperties": False,
                                         "items": {"type": "object", "additionalProperties": False,
                                           "properties": {
                                             "name": {"type": "string"}, "smiles": {"type": "string"},
-                                            "template": {"enum": ["physisorption", "silyl_substitution", "acylation", "carbonyl_addition"]},
+                                            "template": {"enum": ["physisorption", "silyl_substitution", "acylation",
+                                                                  "carbonyl_addition", "imine_condensation"]},
                                             "role": {"enum": ["inhibitor"]},
                                             "hypothesis": {"type": "string"}, "falsification": {"type": "string"},
                                             "predicted_direction": {"enum": ["prefers_SiNx", "prefers_SiO2"]},
@@ -118,11 +127,23 @@ def excerpt(text, n=200):
     return repr(text) if len(text) <= 2 * n else f"{text[:n]!r} ... {text[-n:]!r} ({len(text)} chars)"
 
 
+class InvalidReply(ValueError):
+    """The model answered, but not with JSON; asking again can fix it."""
+
+
 def parse(text):
     try:
         return json.loads(text)
     except ValueError as exc:
-        raise ValueError(f"Model reply is not valid JSON ({exc.msg}): {excerpt(text)}") from None
+        raise InvalidReply(f"Model reply is not valid JSON ({exc.msg}): {excerpt(text)}") from None
+
+
+def reply_error(exc):
+    """One line for the model and the log; str() of a jsonschema error dumps the whole schema."""
+    if isinstance(exc, jsonschema.ValidationError):
+        where = "/".join(map(str, exc.absolute_path))
+        return f"{where}: {exc.message}" if where else exc.message
+    return str(exc)
 
 
 class BackendConfigError(RuntimeError):
@@ -147,6 +168,16 @@ def api_schema(schema):
     properties["action"] = {"enum": actions}
     required = [k for k in branches[0]["required"] if all(k in b["required"] for b in branches)]
     return {"type": "object", "additionalProperties": False, "properties": properties, "required": required}
+
+
+def tidy(decision):
+    """Drop empty optional fields: models send candidate_ids: [] with actions that
+    do not use it, and failed every retry on it. Required fields are kept, so a
+    propose with no candidates still fails with a clear error."""
+    if not isinstance(decision, dict):
+        return decision
+    return {k: v for k, v in decision.items()
+            if k in ("action", "reason", "candidates") or v not in (None, "", [], {})}
 
 
 def check(decision, schema):
@@ -193,7 +224,13 @@ class Backend:
     def plan(self, context):
         # Disabled actions are removed from the schema itself; Ollama enforces it
         # during generation, so a small model cannot keep choosing them.
-        return self.chat(SYSTEM, context, schema_for(context.get("available_actions")))
+        schema = schema_for(context.get("available_actions"))
+        try:
+            return self.chat(SYSTEM, context, schema)
+        except (InvalidReply, jsonschema.ValidationError) as exc:
+            # One corrected attempt within the step. Non-strict OpenAI output slips
+            # on field names and enums and fixes them when told what was wrong.
+            return self.chat(SYSTEM, {**context, "previous_reply_error": reply_error(exc)}, schema)
 
     def critique(self, action, context):
         return self.chat(CRITIC, {"proposal": action, "evidence": context["evidence"],
@@ -246,7 +283,7 @@ class Ollama(Backend):
         if raw.get("done_reason") == "length":
             raise RuntimeError(f"Reply hit num_predict={self.num_predict} tokens: "
                                + excerpt(raw["message"]["content"]))
-        decision = parse(raw["message"]["content"])
+        decision = tidy(parse(raw["message"]["content"]))
         check(decision, schema)
         return decision
 
@@ -306,7 +343,7 @@ class OpenAI(Backend):
         self.usage["calls"] += 1
         self.usage["prompt_tokens"] += int(usage.get("prompt_tokens", 0))
         self.usage["completion_tokens"] += int(usage.get("completion_tokens", 0))
-        decision = parse(message["content"])
+        decision = tidy(parse(message["content"]))
         check(decision, schema)
         return decision
 

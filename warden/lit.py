@@ -135,7 +135,7 @@ QUESTION_TEMPLATES = {
     ],
 }
 REACTION = {"acylation": "acylation", "silyl_substitution": "silylation", "physisorption": "adsorption",
-            "carbonyl_addition": "aldehyde/ketone addition"}
+            "carbonyl_addition": "aldehyde/ketone addition", "imine_condensation": "imine condensation"}
 
 
 def questions(record, found):
@@ -297,7 +297,9 @@ def normalize(s):
 
 
 def quote_in(quote, text):
-    q = normalize(quote or "")
+    # Punctuation and quotation marks at the ends are not part of the claim: a
+    # planner ended a verbatim clause with "." where the source has ",".
+    q = normalize(quote or "").strip(" .,;:!?\"'")
     return len(q) >= 12 and q in normalize(readable(text))
 
 

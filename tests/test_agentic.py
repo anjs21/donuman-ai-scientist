@@ -52,6 +52,16 @@ def test_analog_evidence_lines_are_quotable():
     assert validate_candidate(spec, evidence, require_evidence=True)
 
 
+def test_quotes_ignore_end_punctuation_but_not_words():
+    """Regression: a verbatim clause ending in '.' where the source has ',' was rejected."""
+    from warden.lit import quote_in
+    text = "with aldehyde molecules, which do not react with the Si-OH sites on a SiO2 surface, and then"
+    assert quote_in("which do not react with the Si-OH sites on a SiO2 surface.", text)
+    assert quote_in('"which do not react with the Si-OH sites"', text)
+    assert not quote_in("which do react with the Si-OH sites on a SiO2 surface", text)
+    assert not quote_in("surface.....", text)
+
+
 def test_result_text_keeps_quotes_verbatim_and_finds_dois():
     result = {"content": [{"type": "text", "text": PAPER}], "isError": False}
     assert result_text(result) == PAPER
@@ -186,6 +196,31 @@ def test_analog_action_then_cited_proposal(tmp_path):
     s.close()
 
 
+def test_analogs_and_refine_accept_a_one_item_candidate_ids(tmp_path):
+    """Regression: analogs with candidate_ids=[id] was rejected as 'Unknown candidate' four times."""
+    s = Store(tmp_path / "db")
+    s.put("candidate", DMATMS["id"], DMATMS)
+    computed = []
+    run(s, Scripted([{"action": "analogs", "reason": "r", "candidate_ids": [DMATMS["id"]], "direction": "more_reactive"},
+                     {"action": "refine", "reason": "r", "candidate_ids": [DMATMS["id"]]},
+                     {"action": "analogs", "reason": "r", "candidate_id": "cand_missing"}]),
+        lambda ids, f: computed.append((ids, f)), {"campaign": {"max_steps": 3, "max_refinements": 1}})
+    assert [e for _, _, k, e in s.db.execute("SELECT * FROM events") if k == "analog_design"]
+    assert computed == [([DMATMS["id"]], 1)]
+    assert any(f"needs one candidate_id from ['{DMATMS['id']}']" in e["text"] for e in s.all("notebook"))
+    s.close()
+
+
+def test_context_states_the_computed_preference(tmp_path):
+    s = Store(tmp_path / "db")
+    s.put("candidate", ACYL["id"], ACYL)
+    s.put("result", "r", {"candidate_id": ACYL["id"], "mode": "mace", "status": "complete",
+                          "dE_GS": -.33, "dE_NGS": .36, "contrast_eV": -.69})
+    row = context(s, {"pending": None}, [])["results"][0]
+    assert row["computed_preference"] == "prefers_SiO2"
+    s.close()
+
+
 def test_tool_schemas_are_compacted_for_the_planner():
     from warden.campaign import compact_schema
     schema = {"type": "object", "required": ["query"],
@@ -216,17 +251,39 @@ def test_repair_action_is_budgeted_and_needs_kinetics(tmp_path):
     s = Store(tmp_path / "db")
     s.put("candidate", ACYL["id"], ACYL)
     repair = {"action": "repair", "reason": "failed sites", "candidate_ids": [ACYL["id"]], "budget": 50}
-    run(s, Scripted([dict(repair)]), lambda *a: None, {"campaign": {"max_steps": 2}})
-    assert any("needs barrier kinetics" in e["text"] for e in s.all("notebook"))
+    planner = Scripted([dict(repair)])
+    run(s, planner, lambda *a: None, {"campaign": {"max_steps": 2}})
+    # Without barrier kinetics repair is never offered, so choosing it is a planner error.
+    assert "repair" not in planner.seen[0]["available_actions"]
+    assert any("'repair' is not available" in e for e in _events(s, "planner_error"))
     s2 = Store(tmp_path / "db2")
     s2.put("candidate", ACYL["id"], ACYL)
     calls = []
-    run(s2, Scripted([dict(repair) for _ in range(3)]), lambda *a: None,
+    planner = Scripted([dict(repair) for _ in range(3)])
+    run(s2, planner, lambda *a: None,
         {"campaign": {"max_steps": 4, "max_repairs": 2, "repair_budget": 5}},
         repairer=lambda ids, budget: calls.append((ids, budget)))
     assert calls == [([ACYL["id"]], 5.0), ([ACYL["id"]], 5.0)]
-    assert any("Repair budget exhausted" in e["text"] for e in s2.all("notebook"))
+    assert "repair" not in planner.seen[2]["available_actions"]
     s.close(); s2.close()
+
+
+def _events(store, kind):
+    return [body for _, _, k, body in store.db.execute("SELECT * FROM events") if k == kind]
+
+
+def test_spent_budgets_hide_actions_and_repeated_analogs_are_refused(tmp_path):
+    """Regression: a planner re-ran an identical analog request (spending the budget),
+    then kept choosing analogs after the budget was gone."""
+    s = Store(tmp_path / "db")
+    s.put("candidate", DMATMS["id"], DMATMS)
+    same = {"action": "analogs", "reason": "r", "candidate_id": DMATMS["id"], "direction": "more_reactive"}
+    planner = Scripted([dict(same), dict(same), {**same, "direction": "all"}])
+    state = run(s, planner, lambda *a: None, {"campaign": {"max_steps": 4, "max_analog_calls": 2}})
+    assert state["analog_calls"] == 2 and len(_events(s, "analog_design")) == 2
+    assert any("Identical analog request already run" in e["text"] for e in s.all("notebook"))
+    assert "analogs" not in planner.seen[3]["available_actions"]
+    s.close()
 
 
 def test_planner_only_offered_usable_actions_without_literature(tmp_path):
@@ -252,9 +309,15 @@ def test_planner_only_offered_usable_actions_without_literature(tmp_path):
     assert state["status"] == "budget_exhausted"
     assert [b["properties"]["action"] for b in schema_for(["propose", "finish"])["anyOf"]] == \
         [{"const": "propose"}, {"enum": ["finish"]}]
-    spent = {"submitted": ["x"], "searches": 1, "max_searches": 1}
-    assert available_actions(spent, object(), None) == ["analogs", "propose", "refine", "repair", "finish"]
+    spent = {"submitted": ["x"], "max_candidates": 2, "searches": 1, "max_searches": 1, "analog_calls": 0,
+             "max_analog_calls": 1, "refinements": {}, "max_refinements": 1, "repairs": 0, "max_repairs": 1}
+    assert available_actions(spent, object(), object()) == ["analogs", "propose", "refine", "repair", "finish"]
     assert available_actions({**spent, "searches": 0}, object(), None)[0] == "search"
+    # Regression: analogs of "glutaraldehyde" (a name) were requested before any candidate existed.
+    start = {**spent, "submitted": [], "searches": 0}
+    assert available_actions(start, object(), object(), has_candidates=False) == ["search", "propose"]
+    assert available_actions({**spent, "submitted": ["x", "y"], "analog_calls": 1, "refinements": {"x": 1},
+                              "repairs": 1}, object(), object()) == ["finish"]
 
 
 def test_propose_must_carry_candidates_and_others_must_not():

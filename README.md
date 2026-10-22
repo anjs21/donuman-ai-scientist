@@ -1,6 +1,7 @@
 # WARDEN v2 implementation bundle
 
 Start with **[RUN_ORDER.md](RUN_ORDER.md)** for installation and the exact execution order.
+Results and current status: **[RESULTS.md](RESULTS.md)**.
 
 ```bash
 python -m pip install -r requirements-v2.txt

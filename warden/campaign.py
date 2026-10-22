@@ -21,7 +21,7 @@ from . import notebook
 from .chemistry import validate_candidate
 from .common import digest
 from .metrics import diagnose
-from .planner import BackendConfigError, check, schema_for
+from .planner import BackendConfigError, check, reply_error, schema_for
 
 
 EVIDENCE_ITEMS = 12
@@ -46,7 +46,8 @@ def context(store, state, tools):
             "candidates": [{k: c.get(k) for k in ("id", "name", "smiles", "template", "role",
                                                   "predicted_direction")} for c in store.all("candidate")],
             "diagnoses": diagnose(rows),
-            "results": [{k: r.get(k) for k in ("candidate_id", "mode", "status", "dE_GS", "dE_NGS", "metrics", "reason")} for r in rows],
+            "results": [{**{k: r.get(k) for k in ("candidate_id", "mode", "status", "dE_GS", "dE_NGS", "metrics", "reason")},
+                         "computed_preference": preference(r)} for r in rows],
             "kinetics": kinetic_context(store),
             "agent_ranking": decision_context(store),
             "hypotheses": [{k: h[k] for k in ("candidate_id", "name", "predicted_direction", "status")}
@@ -57,6 +58,27 @@ def context(store, state, tools):
             "literature_tools": [{"name": t["name"], "description": (t.get("description") or "")[:TOOL_DESCRIPTION_CHARS],
                                   "arguments": compact_schema(t.get("inputSchema"))} for t in tools],
             "last_error": state.get("last_error")}
+
+
+def preference(row):
+    """dE_GS - dE_NGS in words: a planner misread -0.68 eV as SiNx-selective."""
+    gs, ngs = row.get("dE_GS"), row.get("dE_NGS")
+    if row.get("status") != "complete" or gs is None or ngs is None:
+        return None
+    return "prefers_SiNx" if gs - ngs > 0 else "prefers_SiO2"
+
+
+def target(store, action):
+    """The one candidate an analogs/refine action names. Models also send it as
+    candidate_ids (repair's field), so a one-item list is accepted."""
+    ids = action.get("candidate_ids") or []
+    cid = action.get("candidate_id") or (ids[0] if len(ids) == 1 else None)
+    candidate = store.get("candidate", cid) if cid else None
+    if candidate is None:
+        raise ValueError(f"{action['action']} needs one candidate_id from "
+                         f"{[c['id'] for c in store.all('candidate')]}; got candidate_id="
+                         f"{action.get('candidate_id')!r}, candidate_ids={ids}")
+    return candidate
 
 
 def compact_schema(schema, description_chars=80):
@@ -133,7 +155,8 @@ def _summarize_outcome(store, ids):
         part = [names.get(cid, cid) + ":"]
         if best:
             part.append(f"adsorption {best.get('status')}"
-                        + (f", contrast {best['contrast_eV']:+.2f} eV" if best.get("contrast_eV") is not None else "")
+                        + (f", contrast {best['contrast_eV']:+.2f} eV ({preference(best)})"
+                           if best.get("contrast_eV") is not None else "")
                         + (f" ({best.get('reason')})" if best.get("reason") else ""))
         for k in store.all("kinetics"):
             if k.get("candidate_id") == cid:
@@ -145,21 +168,23 @@ def _summarize_outcome(store, ids):
     return lines
 
 
-def available_actions(state, literature, repairer):
-    """Actions offered to the planner this step.
+def available_actions(state, literature, repairer, has_candidates=True):
+    """Actions offered to the planner this step: only those that can run.
 
-    search is hidden when no literature backend is configured or its budget is
-    spent (a model would otherwise repeat it until the step budget runs out),
-    and finish before any candidate is tested (it is refused then). Other
-    budgeted actions stay offered: running them out of budget records a
-    notebook lesson the planner learns from.
+    A model offered an action it cannot use keeps choosing it (search 8 times
+    with no literature backend, analogs after its budget was spent, analogs of
+    a molecule name before any candidate existed), so actions without a
+    backend, budget or candidate are hidden, and finish until a candidate has
+    been tested (it is refused then).
     """
     tested = bool(state["submitted"])
-    actions = ["search"] if literature is not None and state["searches"] < state["max_searches"] else []
-    actions += ["analogs", "propose", "refine", "repair"]
-    if tested:
-        actions.append("finish")
-    return actions
+    usable = {"search": literature is not None and state["searches"] < state["max_searches"],
+              "analogs": has_candidates and state["analog_calls"] < state["max_analog_calls"],
+              "propose": len(state["submitted"]) < state["max_candidates"],
+              "refine": has_candidates and sum(state["refinements"].values()) < state["max_refinements"],
+              "repair": has_candidates and repairer is not None and state["repairs"] < state["max_repairs"],
+              "finish": tested}
+    return [a for a, ok in usable.items() if ok]
 
 
 def run(store, planner, runner, config, literature=None, mode="live", repairer=None):
@@ -192,7 +217,7 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
     store.put("state", "campaign", state)
     while state["pending"] is not None or state["step"] < state["max_steps"]:
         ctx = context(store, state, tools)
-        ctx["available_actions"] = available_actions(state, literature, repairer)
+        ctx["available_actions"] = available_actions(state, literature, repairer, bool(ctx["candidates"]))
         if state["pending"] is None:
             state["step"] += 1
             # Count invalid outputs and failed model calls against the step budget too.
@@ -215,8 +240,8 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
                 store.put("state", "campaign", state)
                 return state
             except Exception as exc:
-                state["last_error"] = str(exc)
-                store.event("planner_error", {"error": str(exc)})
+                state["last_error"] = reply_error(exc)
+                store.event("planner_error", {"error": reply_error(exc)})
                 store.put("state", "campaign", state)
                 continue
         action = state["pending"]
@@ -253,11 +278,14 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
                 from .analogs import enumerate_analogs, as_evidence_text
                 if state["analog_calls"] >= state["max_analog_calls"]:
                     raise ValueError("Analog-design budget exhausted")
-                parent = store.get("candidate", action.get("candidate_id"))
-                if not parent:
-                    raise ValueError("Unknown candidate for analog design")
+                parent = target(store, action)
                 direction = action.get("direction", "all")
                 known = [c["canonical_smiles"] for c in store.all("candidate")]
+                request = {"parent": parent["id"], "direction": direction, "known": len(known)}
+                done = [r for r in state.setdefault("analog_log", []) if r["request"] == request]
+                if done:
+                    raise ValueError(f"Identical analog request already run: its design lines are in "
+                                     f"{done[0]['evidence_id']}; propose from them or pick another direction")
                 designs = enumerate_analogs(parent, direction, limit=int(action.get("limit", 6)), known=known)
                 state["analog_calls"] += 1
                 if not designs:
@@ -265,6 +293,7 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
                 evidence_id = store.evidence(as_evidence_text(parent, designs, direction),
                                              {"provider": "warden.analogs", "parent": parent["id"],
                                               "direction": direction}, "analog_design")
+                state["analog_log"].append({"request": request, "evidence_id": evidence_id})
                 store.event("analog_design", {"evidence_id": evidence_id, "parent": parent["id"],
                                               "direction": direction, "n": len(designs)})
                 notebook.write(store, state["step"], "analogs",
@@ -299,9 +328,7 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
                 runner(action["_ids"], 0)
                 computed = action["_ids"]
             elif kind == "refine":
-                candidate_id = action.get("candidate_id")
-                if not store.get("candidate", candidate_id):
-                    raise ValueError("Unknown candidate")
+                candidate_id = target(store, action)["id"]
                 if "_fidelity" not in action:
                     if sum(state["refinements"].values()) >= state["max_refinements"]:
                         raise ValueError("Refinement budget exhausted")

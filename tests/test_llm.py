@@ -71,9 +71,20 @@ def test_openai_sends_schema_and_bearer_key_and_counts_usage(key):
 
 
 def test_openai_reply_is_validated_locally(key):
-    with Mock([(200, chat_reply({"action": "dance", "reason": "x"}))]) as m:
+    with Mock([(200, chat_reply({"action": "dance", "reason": "x"}))] * 2) as m:
         with pytest.raises(Exception, match="dance"):
             OpenAI({"model": "m", "base_url": m.url}).plan({})
+    assert len(m.requests) == 2
+
+
+def test_invalid_reply_gets_one_corrected_retry_in_the_same_step(key):
+    """Regression: non-strict OpenAI output used direction='prefers_SiNx' and lost the step."""
+    bad = {"action": "analogs", "reason": "r", "candidate_id": "c", "direction": "prefers_SiNx"}
+    good = {**bad, "direction": "less_reactive"}
+    with Mock([(200, chat_reply(bad)), (200, chat_reply(good))]) as m:
+        assert OpenAI({"model": "m", "base_url": m.url}).plan({"available_actions": ["analogs"]}) == good
+    feedback = json.loads(m.requests[1]["body"]["messages"][1]["content"])["previous_reply_error"]
+    assert feedback.startswith("direction: 'prefers_SiNx' is not one of") and "Failed validating" not in feedback
 
 
 def test_missing_key_fails_before_any_request(monkeypatch):
@@ -184,9 +195,16 @@ def test_ollama_caps_reply_length_and_reports_runaway():
         server.shutdown(); server.server_close(); t.join()
 
 
+def test_empty_optional_fields_are_dropped_before_validation(key):
+    """Regression: analogs/propose replies carried candidate_ids: [] and failed every retry."""
+    with Mock([(200, chat_reply({"action": "analogs", "reason": "r", "candidate_id": "c", "candidate_ids": []}))]) as m:
+        reply = OpenAI({"model": "m", "base_url": m.url}).plan({"available_actions": ["analogs", "propose"]})
+    assert reply == {"action": "analogs", "reason": "r", "candidate_id": "c"} and len(m.requests) == 1
+
+
 def test_openai_gets_root_object_schema_but_branch_rules_still_apply(key):
     """Regression: a root anyOf schema was rejected by OpenAI (400) on every step."""
-    with Mock([(200, chat_reply({"action": "propose", "reason": "no candidates"}))]) as m:
+    with Mock([(200, chat_reply({"action": "propose", "reason": "no candidates"}))] * 2) as m:
         o = OpenAI({"model": "m", "base_url": m.url})
         with pytest.raises(Exception, match="candidates"):
             o.plan({"available_actions": ["propose", "analogs"]})

@@ -64,6 +64,61 @@ def test_addition_analogs_only_edit_sterics_and_electronics():
     assert analogs and all("leaving_group" not in a for a in analogs)
 
 
+IMINE = {**PIVALDEHYDE, "template": "imine_condensation"}
+
+
+def test_condensation_validates_like_addition_and_is_a_distinct_candidate():
+    spec = validate_candidate(IMINE)
+    assert spec["id"] != validate_candidate(PIVALDEHYDE)["id"]
+    with pytest.raises(ValueError):
+        validate_candidate({**IMINE, "smiles": "C[C:1](=[O:2])Cl"})
+    with pytest.raises(ValueError, match="no condensed product"):
+        geometries(validate_candidate(PIVALDEHYDE), 1, 42, condensed=True)
+
+
+def test_only_nh2_sites_can_condense():
+    from warden.chemistry import site_products
+    assert site_products("imine_condensation", "NH2") == ["carbonyl_addition", "imine_condensation"]
+    assert site_products("imine_condensation", "NH_bridge") == ["carbonyl_addition"]
+    assert site_products("imine_condensation", "OH") == ["carbonyl_addition"]
+    assert site_products("acylation", "NH2") == ["acylation"]
+
+
+def test_imine_fragment_is_sp2_without_oxygen_and_releases_water():
+    g = geometries(validate_candidate(IMINE), 1, 42, condensed=True)[0]
+    fragment, water = g["fragment"], g["byproduct"]
+    assert water.get_chemical_formula() == "H2O" and "O" not in fragment.get_chemical_symbols()
+    assert Counter(fragment.get_chemical_symbols()) + Counter("OHH") == \
+        Counter(g["molecule"].get_chemical_symbols()) + Counter("HH")
+    assert graph(fragment) == {tuple(sorted(b)) for b in g["bonds"]}
+    # The old C=O axis points at the surface (-z): the carbon's two substituents lean away, ~120 deg.
+    neighbours = [i for i in range(1, len(fragment)) if fragment.get_distance(0, i) < 1.7]
+    assert len(neighbours) == 2 and all(fragment.positions[i, 2] > 0.3 for i in neighbours)
+
+
+def test_imine_placement_takes_both_amine_protons_and_balances():
+    from warden.engine import place
+    g = geometries(validate_candidate(IMINE), 1, 42, condensed=True)[0]
+    amine, site, _, _ = kin.gas_site("[SiH3][NH2:1]")
+    product, mapped, n_sub = place(amine, site, g, "imine_condensation", 0, 2)
+    assert n_sub == len(amine) - 2 and product.get_chemical_symbols()[mapped] == "N"
+    lhs = Counter(amine.get_chemical_symbols()) + Counter(g["molecule"].get_chemical_symbols())
+    assert lhs == Counter(product.get_chemical_symbols()) + Counter(g["byproduct"].get_chemical_symbols())
+    assert product.get_distance(mapped, n_sub) == pytest.approx(1.28, abs=0.01)
+    bridge, site, _, _ = kin.gas_site("[SiH3][NH:1][SiH3]")
+    with pytest.raises(ValueError, match="no_surface_proton"):
+        place(bridge, site, g, "imine_condensation", 0, 2)
+
+
+def test_condensation_kinetics_use_the_addition_step():
+    spec = validate_candidate(IMINE)
+    assert kin.PATHWAYS["imine_condensation"] == kin.PATHWAYS["carbonyl_addition"]
+    site = kin.sites_for("gas")[0]
+    reactant, product, m = kin.endpoints(site["substrate"], site["site"], site["normal"], spec, kin.DEFAULTS)
+    kin.check_reactant(reactant, m)
+    kin.check_product(product, m)
+
+
 def test_rotation_does_not_modify_its_inputs():
     positions = np.array([[0., 0., 0.], [1.77, 0., 0.]])
     rotation(positions[1], [0., 0., -1.])
