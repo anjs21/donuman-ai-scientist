@@ -24,3 +24,7 @@ benchmark against baselines. See **[AGENT_DECISIONS.md](AGENT_DECISIONS.md)**.
 
 The original README is preserved as [README_LEGACY.md](README_LEGACY.md).
 Use `python -m warden`, not the old UI/pipeline entrypoints.
+
+For live literature retrieval, authentication, and candidate selection informed
+by previous results, see [BOND_SEARCH.md](BOND_SEARCH.md). `warden bond-call`
+saves source evidence independently of the full screening campaign.

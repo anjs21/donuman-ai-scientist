@@ -251,6 +251,10 @@ def main(argv=None):
     h.add_argument('--db', required=True); h.add_argument('--file', required=True)
     b = commands.add_parser('bond-tools', help='Discover actual MCP tool names and schemas')
     b.add_argument('--config', required=True); b.add_argument('--out', default='runs/bond_tools.json')
+    bc = commands.add_parser('bond-call', help='Call an allowlisted literature tool and save campaign evidence')
+    bc.add_argument('--config', required=True); bc.add_argument('--tool', required=True)
+    bc.add_argument('--arguments', required=True, help='Path to a JSON object matching the discovered tool schema')
+    bc.add_argument('--out', required=True, help='New evidence JSON file; existing files are never overwritten')
     r = commands.add_parser('report')
     r.add_argument('--db', required=True); r.add_argument('--out', default='runs/report')
     for name in ('screen', 'campaign'):
@@ -310,6 +314,27 @@ def main(argv=None):
             from .literature import Bond
             write_json(args.out, Bond(read_json(args.config)).tools())
             print('Tool inventory:', args.out)
+            return 0
+        if args.command == 'bond-call':
+            from datetime import datetime, timezone
+            from .literature import Bond
+            from .common import dumps
+            destination = Path(args.out)
+            if destination.exists():
+                raise ValueError('Evidence output already exists; choose a new --out path')
+            arguments = read_json(args.arguments)
+            if not isinstance(arguments, dict):
+                raise ValueError('Tool arguments must be a JSON object')
+            result = Bond(read_json(args.config)).call(args.tool, arguments)
+            evidence = [{'kind': 'bond_result', 'text': dumps(result),
+                         'source': {'provider': 'BOND', 'tool': args.tool, 'arguments': arguments,
+                                    'retrieved_at': datetime.now(timezone.utc).isoformat()}}]
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open('x') as output:
+                import json
+                json.dump(evidence, output, indent=2, allow_nan=False)
+                output.write('\n')
+            print('Literature evidence:', destination)
             return 0
         if args.command == 'screen':
             screen_command(args); return 0
