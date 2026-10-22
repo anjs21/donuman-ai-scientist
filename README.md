@@ -22,6 +22,9 @@ with control-gated ranking. See **[V3_KINETICS.md](V3_KINETICS.md)**.
 (molecule, site, pathway, orientation, or method), with an equal-budget
 benchmark against baselines. See **[AGENT_DECISIONS.md](AGENT_DECISIONS.md)**.
 
+**LLM backends:** the campaign planner/critic can run on local Ollama or the
+OpenAI API, per role. See **[LLM_PROVIDERS.md](LLM_PROVIDERS.md)**.
+
 The original README is preserved as [README_LEGACY.md](README_LEGACY.md).
 Use `python -m warden`, not the old UI/pipeline entrypoints.
 

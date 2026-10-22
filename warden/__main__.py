@@ -358,6 +358,26 @@ def decide_command(args):
         store.close()
 
 
+def llm_check(args):
+    """Verify key, model and structured output with a fixed prompt (no project data sent)."""
+    import time
+    from .planner import make_planner
+    planner = make_planner(configuration(args.config)['llm'])
+    schema = {'type': 'object', 'properties': {'ok': {'type': 'boolean'}, 'echo': {'type': 'string'}},
+              'required': ['ok', 'echo'], 'additionalProperties': False}
+    seen = {}
+    for role, b in (('planner', planner.planner), ('critic', planner.critic)):
+        if id(b) in seen:
+            print(f'{role}: same backend as {seen[id(b)]}'); continue
+        seen[id(b)] = role
+        start = time.time()
+        reply = b.chat('Reply with JSON only.', {'task': 'Return ok=true and echo the word WARDEN.'}, schema)
+        info = b.describe()
+        print(f"{role}: {info['provider']} {info['model']} -> {reply} ({time.time() - start:.1f} s)"
+              + (f" usage={info['usage']}" if 'usage' in info else ''))
+    return 0
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         # Literature text (Greek letters, curly quotes) must not crash a cp1252 console.
@@ -437,6 +457,8 @@ def main(argv=None):
     bm.add_argument('--policies', nargs='+', default=None,
                     help='Subset of warden_voi, warden_voi_no_sharing, exhaustive_cheap, screen_then_verify, '
                          'uncertainty_sampling, random')
+    lc = commands.add_parser('llm-check', help='One tiny structured request per configured LLM role')
+    lc.add_argument('--config', default='config/v3.json')
     args = p.parse_args(argv)
     try:
         if args.command == 'demo':
@@ -489,6 +511,8 @@ def main(argv=None):
             return lit_brief_command(args)
         if args.command == 'lit-import':
             return lit_import_command(args)
+        if args.command == 'llm-check':
+            return llm_check(args)
         if args.command == 'screen':
             screen_command(args); return 0
         if args.command == 'kinetics':
@@ -549,7 +573,7 @@ def main(argv=None):
                     store.put('historical', digest(row), row)
             elif args.command == 'campaign':
                 from .campaign import run, subprocess_runner
-                from .planner import Ollama
+                from .planner import make_planner
                 from .literature import Bond
                 from .surfaces import load_manifest
                 config = configuration(args.config)
@@ -567,7 +591,12 @@ def main(argv=None):
                                                      config.get('campaign', {}).get('kinetics', False),
                                                      Path(args.controls).resolve() if args.controls else None,
                                                      config.get('campaign', {}).get('kinetics_sites', 'manifest'))
-                state = run(store, Ollama(config['llm']), runner, config, bond, repairer=repairer)
+                planner = make_planner(config['llm'])
+                store.event('llm_backends', planner.describe())
+                try:
+                    state = run(store, planner, runner, config, bond, repairer=repairer)
+                finally:
+                    store.event('llm_usage', planner.describe())
                 print('Campaign:', state['status'], '| scientific_success: false')
             from .report import export
             export(store, args.out if args.command == 'report' else Path(args.db).resolve().parent)

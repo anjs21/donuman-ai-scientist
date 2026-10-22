@@ -147,3 +147,12 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
   Propanoyl chloride and BDMADMS are computable now; the aldehydes (the
   literature's SiN-selective class) and the cyclic azasilane need new
   carbonyl-addition / ring-opening templates.
+
+# OpenAI backend for planner and critic
+
+- `warden/planner.py`: `OpenAI` backend (Chat Completions, non-strict JSON schema,
+  local validation, retries on 429/5xx, refusal/truncation errors, token usage),
+  key read only from an environment variable; `make_planner` with per-role
+  backends; shared `Backend.plan/critique`. Legacy `llm` configs still mean Ollama.
+- Campaign logs `llm_backends` and `llm_usage` events. CLI `llm-check`.
+- `config/v3-openai.json`, `config/v3-hybrid.json`; `tests/test_llm.py` (mock server).
