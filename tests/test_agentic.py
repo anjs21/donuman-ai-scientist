@@ -227,3 +227,49 @@ def test_repair_action_is_budgeted_and_needs_kinetics(tmp_path):
     assert calls == [([ACYL["id"]], 5.0), ([ACYL["id"]], 5.0)]
     assert any("Repair budget exhausted" in e["text"] for e in s2.all("notebook"))
     s.close(); s2.close()
+
+
+def test_planner_only_offered_usable_actions_without_literature(tmp_path):
+    """Regression: with no BOND connection a planner kept choosing search until
+    the step budget ran out. search must not be offered at all."""
+    from warden.campaign import run, available_actions
+    from warden.planner import schema_for
+    from warden.store import Store
+    seen = []
+
+    class Planner:
+        def plan(self, ctx):
+            seen.append(ctx["available_actions"])
+            return {"action": "search", "reason": "keep searching"}
+
+        def critique(self, action, ctx):
+            return {"approve": True, "reason": "-"}
+    store = Store(tmp_path / "c.sqlite")
+    state = run(store, Planner(), lambda ids, f: None, {"campaign": {"max_steps": 2, "max_candidates": 2}})
+    assert seen and all("search" not in a and "finish" not in a and "propose" in a for a in seen)
+    events = [k for _, _, k, _ in store.db.execute("SELECT * FROM events")]
+    assert "planner_error" in events and "action_rejected_or_failed" not in events
+    assert state["status"] == "budget_exhausted"
+    assert [b["properties"]["action"] for b in schema_for(["propose", "finish"])["anyOf"]] == \
+        [{"const": "propose"}, {"enum": ["finish"]}]
+    spent = {"submitted": ["x"], "searches": 1, "max_searches": 1}
+    assert available_actions(spent, object(), None) == ["analogs", "propose", "refine", "repair", "finish"]
+    assert available_actions({**spent, "searches": 0}, object(), None)[0] == "search"
+
+
+def test_propose_must_carry_candidates_and_others_must_not():
+    """Regression: a 7B planner put a SMILES in candidate_id instead of candidates."""
+    import jsonschema
+    from warden.planner import schema_for
+    schema = schema_for()
+    bad = [{"action": "propose", "reason": "r", "candidate_id": "CC=O"},
+           {"action": "propose", "reason": "r", "candidates": []},
+           {"action": "search", "reason": "r", "candidates": [{}]}]
+    for action in bad:
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(action, schema)
+    good = {"action": "propose", "reason": "r", "candidates": [{
+        "name": "x", "smiles": "C[C:1](=O)[Cl:2]", "template": "acylation", "role": "inhibitor",
+        "hypothesis": "h", "falsification": "f", "evidence": [{"id": "e", "quote": "q"}]}]}
+    jsonschema.validate(good, schema)
+    jsonschema.validate({"action": "refine", "reason": "r", "candidate_id": "cand_1"}, schema)

@@ -375,6 +375,17 @@ def llm_check(args):
         info = b.describe()
         print(f"{role}: {info['provider']} {info['model']} -> {reply} ({time.time() - start:.1f} s)"
               + (f" usage={info['usage']}" if 'usage' in info else ''))
+    # The real campaign schemas, with a dummy task: catches a backend that rejects
+    # them before a campaign spends its steps (no project data is sent).
+    from .planner import CRITIC_SCHEMA, schema_for
+    for role, b, sch, task in (('planner', planner.planner, schema_for(['analogs', 'propose']),
+                                {'task': 'Schema check only. Choose action analogs with reason "check".'}),
+                               ('critic', planner.critic, CRITIC_SCHEMA,
+                                {'task': 'Schema check only. Return approve=false, reason "check".'})):
+        start = time.time()
+        reply = b.chat('Reply with JSON only.', task, sch)
+        print(f"{role}: campaign schema accepted -> action/approve={reply.get('action', reply.get('approve'))} "
+              f"({time.time() - start:.1f} s)")
     return 0
 
 
@@ -457,6 +468,11 @@ def main(argv=None):
     bm.add_argument('--policies', nargs='+', default=None,
                     help='Subset of warden_voi, warden_voi_no_sharing, exhaustive_cheap, screen_then_verify, '
                          'uncertainty_sampling, random')
+    fm = commands.add_parser('fetch-model', help='Download a MACE foundation checkpoint (fixed official URLs)')
+    fm.add_argument('--name', help='Registry name; omit with --list'); fm.add_argument('--list', action='store_true')
+    fm.add_argument('--out', default='models/mace.model', help='Destination, relative to the repo root (configs resolve ../models/mace.model from config/ to this)')
+    fm.add_argument('--force', action='store_true'); fm.add_argument('--accept-license', action='store_true')
+    fm.add_argument('--verify', action='store_true', help='Load it and evaluate NH3 on CPU')
     lc = commands.add_parser('llm-check', help='One tiny structured request per configured LLM role')
     lc.add_argument('--config', default='config/v3.json')
     args = p.parse_args(argv)
@@ -511,6 +527,16 @@ def main(argv=None):
             return lit_brief_command(args)
         if args.command == 'lit-import':
             return lit_import_command(args)
+        if args.command == 'fetch-model':
+            from . import models
+            if args.list or not args.name:
+                for name, e in models.REGISTRY.items():
+                    print(f"{name:18s} {e['license']:4s} {e['theory']:24s} {e['url']}")
+                return 0
+            record = models.fetch(args.name, args.out, args.force, args.accept_license)
+            if args.verify:
+                print('verify:', models.verify(record['path']))
+            return 0
         if args.command == 'llm-check':
             return llm_check(args)
         if args.command == 'screen':
@@ -591,6 +617,11 @@ def main(argv=None):
                                                      config.get('campaign', {}).get('kinetics', False),
                                                      Path(args.controls).resolve() if args.controls else None,
                                                      config.get('campaign', {}).get('kinetics_sites', 'manifest'))
+                previous = store.get('state', 'campaign')
+                if previous and previous.get('status') in ('finished', 'budget_exhausted'):
+                    print(f"This database's campaign already ended ({previous['status']}); "
+                          'nothing to do. Use a new --db to run again.')
+                    return 0
                 planner = make_planner(config['llm'])
                 store.event('llm_backends', planner.describe())
                 try:
@@ -598,6 +629,9 @@ def main(argv=None):
                 finally:
                     store.event('llm_usage', planner.describe())
                 print('Campaign:', state['status'], '| scientific_success: false')
+                if state['status'] == 'stopped_backend_error':
+                    print('Stopped on an LLM backend error that would repeat every step:', state['last_error'])
+                    print('Fix the llm config, key or model, then rerun the same command to resume.')
             from .report import export
             export(store, args.out if args.command == 'report' else Path(args.db).resolve().parent)
         finally:

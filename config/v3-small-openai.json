@@ -1,0 +1,116 @@
+{
+  "engine": {
+    "model_path": "../models/mace.model",
+    "device": "cuda",
+    "dtype": "float32",
+    "max_sites": 1,
+    "n_conformers": 1,
+    "orientations": 2,
+    "steps": 200,
+    "fmax": 0.05,
+    "active_radius_A": 5.0,
+    "min_site_success_fraction": 0.8,
+    "energy_review_limit_eV": 15.0,
+    "seed": 42
+  },
+  "objective": {
+    "max_cycles": 200,
+    "min_gpc_GS_A": 0.1,
+    "growth": {
+      "target_thickness_nm": 10.0,
+      "target_selectivity": 0.9
+    }
+  },
+  "llm": {
+    "planner": {
+      "provider": "openai",
+      "model": "gpt-4.1",
+      "api_key_env": "OPENAI_API_KEY",
+      "temperature": 0.15,
+      "timeout_s": 180,
+      "max_retries": 3
+    },
+    "critic": {
+      "provider": "openai",
+      "model": "gpt-4.1",
+      "api_key_env": "OPENAI_API_KEY",
+      "temperature": 0.0,
+      "timeout_s": 180,
+      "max_retries": 3
+    }
+  },
+  "campaign": {
+    "max_steps": 8,
+    "max_candidates": 3,
+    "max_searches": 2,
+    "max_refinements": 0,
+    "max_repairs": 1,
+    "repair_budget": 3.0,
+    "max_analog_calls": 2,
+    "worker_timeout_s": 7200,
+    "kinetics": true,
+    "kinetics_sites": "gas"
+  },
+  "kinetics": {
+    "method": "mace",
+    "xtb_method": "GFN2-xTB",
+    "n_images": 5,
+    "fmax": 0.05,
+    "neb_fmax": 0.1,
+    "steps": 250,
+    "neb_steps": 800,
+    "attack_distance_A": 2.8,
+    "cluster_shells": 3,
+    "max_sites": 2,
+    "orientations": 4,
+    "barrier_orientations": 1,
+    "max_image_jump_eV": 1.5,
+    "seed": 42,
+    "min_barrier_eV": 0.05
+  },
+  "process": {
+    "T_K": 473.0,
+    "pressure_Pa": 133.0,
+    "gpc_A": 1.2,
+    "target_thickness_nm": 10.0,
+    "target_selectivity": 0.9,
+    "max_cycles": 300,
+    "cycle_time_s": 20.0,
+    "min_practical_dose_s": 0.05,
+    "max_practical_dose_s": 30.0
+  },
+  "design": {
+    "temperatures": [
+      373,
+      423,
+      473,
+      523
+    ],
+    "doses": [
+      0.0001,
+      0.001,
+      0.01,
+      0.05,
+      0.2,
+      1,
+      5,
+      20
+    ],
+    "intervals": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "n_draws": 150,
+    "p_required": 0.8,
+    "seed": 0
+  },
+  "_note": "Small live campaign: adsorption on the admitted Kim slabs (1 representative site per kind/face), MACE barriers on gas-phase site models, 8 planner steps. Barrier-level physics is coarse."
+}

@@ -35,7 +35,9 @@ MIN_QUOTE_WORDS = 5
 def validate_candidate(spec, evidence=None, require_evidence=False):
     spec = dict(spec)
     name = spec.get("name", "")
-    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9 _().+-]{1,80}", name):
+    # Chemical names use commas, primes and brackets (N,N'-dimethyl..., [2.2.2]);
+    # "|" and newlines stay out because names go into report tables.
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9 _().,'\[\]+-]{1,80}", name):
         raise ValueError("name must be 1-80 simple printable characters")
     mol = Chem.MolFromSmiles(spec.get("smiles", ""))
     if mol is None or mol.GetNumAtoms() == 0 or len(Chem.GetMolFrags(mol)) != 1:
@@ -43,6 +45,12 @@ def validate_candidate(spec, evidence=None, require_evidence=False):
     if mol.GetNumAtoms() > 80:
         raise ValueError("Hackathon limit: 80 heavy atoms")
     if any(a.GetFormalCharge() or a.GetNumRadicalElectrons() for a in mol.GetAtoms()):
+        bad = next(a for a in mol.GetAtoms() if a.GetFormalCharge() or a.GetNumRadicalElectrons())
+        if bad.GetNumRadicalElectrons() and not bad.GetFormalCharge():
+            # Usually a bracketed, mapped atom written without its hydrogens.
+            raise ValueError(f"Atom {bad.GetSymbol()}{bad.GetIdx()} (map {bad.GetAtomMapNum()}) has an unfilled "
+                             f"valence (radical). Bracket atoms need explicit H, e.g. [CH:1] or [CH3:1]; "
+                             "charged/radical chemistry requires a different validated template")
         raise ValueError("Charged/radical chemistry requires a different validated template")
     if not {a.GetSymbol() for a in mol.GetAtoms()} <= ALLOWED_ELEMENTS:
         raise ValueError("Unsupported element")

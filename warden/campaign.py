@@ -21,7 +21,7 @@ from . import notebook
 from .chemistry import validate_candidate
 from .common import digest
 from .metrics import diagnose
-from .planner import SCHEMA
+from .planner import BackendConfigError, check, schema_for
 
 
 EVIDENCE_ITEMS = 12
@@ -145,6 +145,23 @@ def _summarize_outcome(store, ids):
     return lines
 
 
+def available_actions(state, literature, repairer):
+    """Actions offered to the planner this step.
+
+    search is hidden when no literature backend is configured or its budget is
+    spent (a model would otherwise repeat it until the step budget runs out),
+    and finish before any candidate is tested (it is refused then). Other
+    budgeted actions stay offered: running them out of budget records a
+    notebook lesson the planner learns from.
+    """
+    tested = bool(state["submitted"])
+    actions = ["search"] if literature is not None and state["searches"] < state["max_searches"] else []
+    actions += ["analogs", "propose", "refine", "repair"]
+    if tested:
+        actions.append("finish")
+    return actions
+
+
 def run(store, planner, runner, config, literature=None, mode="live", repairer=None):
     limits = config.get("campaign", {})
     settings = {"max_steps": int(limits.get("max_steps", 10)),
@@ -163,6 +180,8 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
     if state is None:
         state = {**settings, "step": 0, "submitted": [], "searches": 0, "search_log": [],
                  "refinements": {}, "repairs": 0, "analog_calls": 0, "pending": None, "status": "running"}
+    if state["status"] == "stopped_backend_error":
+        state["status"] = "running"  # resuming after the configuration was fixed
     if state["status"] in {"finished", "budget_exhausted"}:
         return state
     tools = []
@@ -173,18 +192,28 @@ def run(store, planner, runner, config, literature=None, mode="live", repairer=N
     store.put("state", "campaign", state)
     while state["pending"] is not None or state["step"] < state["max_steps"]:
         ctx = context(store, state, tools)
+        ctx["available_actions"] = available_actions(state, literature, repairer)
         if state["pending"] is None:
             state["step"] += 1
             # Count invalid outputs and failed model calls against the step budget too.
             store.put("state", "campaign", state)
             try:
                 action = planner.plan(ctx)
-                jsonschema.validate(action, SCHEMA)
+                check(action, schema_for(ctx["available_actions"]))
                 state["pending"] = action
                 store.event("plan", {"step": state["step"], "action": action})
                 if action.get("lesson"):
                     notebook.write(store, state["step"], "planner", action["lesson"])
                 store.put("state", "campaign", state)
+            except BackendConfigError as exc:
+                # Same failure on every step: stop, and give the step back so a
+                # resume after fixing the configuration loses nothing.
+                state["step"] -= 1
+                state["last_error"] = str(exc)
+                state["status"] = "stopped_backend_error"
+                store.event("planner_error", {"error": str(exc), "fatal": True})
+                store.put("state", "campaign", state)
+                return state
             except Exception as exc:
                 state["last_error"] = str(exc)
                 store.event("planner_error", {"error": str(exc)})

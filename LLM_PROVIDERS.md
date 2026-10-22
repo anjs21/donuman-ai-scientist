@@ -38,6 +38,13 @@ OpenAI model your account can use that supports Structured Outputs.
 
 ## Check, then run
 
+The campaign's MACE screen needs a checkpoint at `models/mace.model`:
+
+```bash
+python -m warden fetch-model --list
+python -m warden fetch-model --name matpes-r2scan-0 --accept-license --verify
+```
+
 ```bash
 env -u PYTHONPATH python -m pytest -q tests/test_llm.py          # mock server, no key needed
 python -m warden llm-check --config config/v3-openai.json        # one tiny request per role; no project data

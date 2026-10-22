@@ -34,11 +34,23 @@ amide/ester; or carbonyl_addition: an aldehyde/ketone with the carbonyl carbon
 across C=O (hemiaminal/hemiacetal; the later dehydration to an imine is not
 modelled). Other mechanisms need future implementation. Use neutral
 closed-shell molecules only. Do not submit code.
+SMILES rules: map exactly the anchor (:1) and, for substitution/acylation, the
+leaving atom (:2); write every other atom unmapped and unbracketed. A bracketed
+atom must state its hydrogens ([CH:1], [SiH2:1]). No groups inside brackets.
+"name" is a chemical name, never a SMILES. Format examples only -- these are
+known molecules or controls (DMATMS caps the oxide); do not propose them unchanged:
+  DMATMS (silyl_substitution)      C[Si:1](C)(C)[N:2](C)C
+  acetyl chloride (acylation)      C[C:1](=O)[Cl:2]
+  acetic anhydride (acylation)     C[C:1](=O)[O:2]C(C)=O
+  pivaldehyde (carbonyl_addition)  CC(C)(C)[CH:1]=[O:2]
 Selectivity can be kinetic: compare kinetics barriers (Ea, eV) on SiO2 and SiNx.
 A large barrier difference is not enough; the dose window must fall inside
 practical dose times. Each kinetic summary states target_Ea_NGS_max_eV and
 target_Ea_GS_min_eV; steer reactivity (leaving group, sterics, electronics)
 toward that band, and use measure_first to explain what limits confidence.
+Choose only from available_actions in the context; the others are not
+configured or their budget is used up. With no literature tools, work from the
+supplied evidence (propose or analogs).
 Actions:
 - search: call one literature tool from literature_tools with arguments matching
   its inputSchema (e.g. semantic_search_papers with source=chemrxiv). Mine the
@@ -101,11 +113,87 @@ CRITIC_SCHEMA = {"type": "object", "properties": {"approve": {"type": "boolean"}
                  "additionalProperties": False}
 
 
+def excerpt(text, n=200):
+    text = text or ""
+    return repr(text) if len(text) <= 2 * n else f"{text[:n]!r} ... {text[-n:]!r} ({len(text)} chars)"
+
+
+def parse(text):
+    try:
+        return json.loads(text)
+    except ValueError as exc:
+        raise ValueError(f"Model reply is not valid JSON ({exc.msg}): {excerpt(text)}") from None
+
+
+class BackendConfigError(RuntimeError):
+    """A request the backend will refuse every time (bad schema, key, model or URL).
+    The campaign stops on it instead of spending every step on the same error."""
+
+
+def api_schema(schema):
+    """Single root object for APIs that reject a root anyOf (OpenAI): the union of
+    the branches' properties, requiring only what every branch requires. The
+    per-action rules are still enforced by local validation of the reply."""
+    if "anyOf" not in schema:
+        return schema
+    branches = schema["anyOf"]
+    properties = {}
+    for b in branches:
+        for k, v in b["properties"].items():
+            properties.setdefault(k, v)
+    actions = [a for b in branches for a in ([b["properties"]["action"]["const"]]
+                                              if "const" in b["properties"]["action"]
+                                              else b["properties"]["action"]["enum"])]
+    properties["action"] = {"enum": actions}
+    required = [k for k in branches[0]["required"] if all(k in b["required"] for b in branches)]
+    return {"type": "object", "additionalProperties": False, "properties": properties, "required": required}
+
+
+def check(decision, schema):
+    """Validate a reply; with branches, against the one for the chosen action, so
+    the error names the real problem (e.g. missing candidates for propose)."""
+    if "anyOf" in schema and isinstance(decision, dict):
+        for branch in schema["anyOf"]:
+            spec = branch["properties"]["action"]
+            if decision.get("action") == spec.get("const") or decision.get("action") in spec.get("enum", []):
+                jsonschema.validate(decision, branch)
+                return
+        offered = [a for br in schema["anyOf"] for a in ([br["properties"]["action"]["const"]]
+                   if "const" in br["properties"]["action"] else br["properties"]["action"]["enum"])]
+        raise jsonschema.ValidationError(f"action {decision.get('action')!r} is not available now; "
+                                         f"choose one of {offered}")
+    jsonschema.validate(decision, schema)
+
+
+def schema_for(actions=None):
+    """The action schema for this step: only the usable actions, and one branch
+    per shape so `propose` must carry 1-3 candidates while other actions carry
+    none. Ollama compiles this into its generation grammar."""
+    actions = [a for a in SCHEMA["properties"]["action"]["enum"] if not actions or a in actions]
+    branches = []
+    if "propose" in actions:
+        b = json.loads(json.dumps(SCHEMA))
+        b["properties"]["action"] = {"const": "propose"}
+        b["properties"]["candidates"]["minItems"] = 1
+        del b["properties"]["candidate_id"]
+        b["required"] = ["action", "reason", "candidates"]
+        branches.append(b)
+    others = [a for a in actions if a != "propose"]
+    if others:
+        b = json.loads(json.dumps(SCHEMA))
+        b["properties"]["action"] = {"enum": others}
+        del b["properties"]["candidates"]
+        branches.append(b)
+    return branches[0] if len(branches) == 1 else {"anyOf": branches}
+
+
 class Backend:
     """plan/critique on top of a backend's chat(system, context, schema)."""
 
     def plan(self, context):
-        return self.chat(SYSTEM, context, SCHEMA)
+        # Disabled actions are removed from the schema itself; Ollama enforces it
+        # during generation, so a small model cannot keep choosing them.
+        return self.chat(SYSTEM, context, schema_for(context.get("available_actions")))
 
     def critique(self, action, context):
         return self.chat(CRITIC, {"proposal": action, "evidence": context["evidence"],
@@ -120,6 +208,9 @@ class Ollama(Backend):
         self.model = config["model"]
         self.timeout = config.get("timeout_s", 180)
         self.num_ctx = int(config.get("num_ctx", 16384))
+        # Small models under a JSON grammar can emit whitespace or repeat until the
+        # timeout; a reply cap turns a 10-minute hang into a quick, logged failure.
+        self.num_predict = int(config.get("num_predict", 2048))
 
     def chat(self, system, context, schema):
         content = json.dumps(context, allow_nan=False)
@@ -131,17 +222,32 @@ class Ollama(Backend):
             raise ValueError(f"Planner prompt (~{estimate:.0f} tokens) exceeds num_ctx={self.num_ctx}; "
                              "raise llm.num_ctx or reduce evidence")
         payload = {"model": self.model, "stream": False, "format": schema,
-                   "keep_alive": 0, "options": {"temperature": .15, "num_ctx": self.num_ctx},
+                   "keep_alive": 0, "options": {"temperature": .15, "num_ctx": self.num_ctx,
+                                                "num_predict": self.num_predict},
                    "messages": [{"role": "system", "content": system},
                                 {"role": "user", "content": content}]}
         req = urllib.request.Request(self.host + "/api/chat", data=json.dumps(payload).encode(),
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=self.timeout) as response:
-            raw = json.load(response)
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as response:
+                raw = json.load(response)
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = json.loads(exc.read().decode() or "{}").get("error", "")
+            except ValueError:
+                detail = ""
+            error = BackendConfigError if exc.code in (400, 404) else RuntimeError
+            raise error(f"Ollama error {exc.code}: {str(detail)[:300]} (model {self.model!r}; "
+                        "`ollama list` shows installed models)") from None
+        except urllib.error.URLError as exc:
+            raise BackendConfigError(f"Cannot reach Ollama at {self.host}: {exc.reason}") from None
         if raw.get("error"):
             raise RuntimeError(raw["error"])
-        decision = json.loads(raw["message"]["content"])
-        jsonschema.validate(decision, schema)
+        if raw.get("done_reason") == "length":
+            raise RuntimeError(f"Reply hit num_predict={self.num_predict} tokens: "
+                               + excerpt(raw["message"]["content"]))
+        decision = parse(raw["message"]["content"])
+        check(decision, schema)
         return decision
 
     def describe(self):
@@ -183,7 +289,8 @@ class OpenAI(Backend):
                    "messages": [{"role": "system", "content": system},
                                 {"role": "user", "content": content}],
                    "response_format": {"type": "json_schema",
-                                       "json_schema": {"name": "warden_reply", "schema": schema, "strict": False}}}
+                                       "json_schema": {"name": "warden_reply", "schema": api_schema(schema),
+                                                       "strict": False}}}
         if self.temperature is not None:
             payload["temperature"] = self.temperature
         if self.max_tokens:
@@ -199,8 +306,8 @@ class OpenAI(Backend):
         self.usage["calls"] += 1
         self.usage["prompt_tokens"] += int(usage.get("prompt_tokens", 0))
         self.usage["completion_tokens"] += int(usage.get("completion_tokens", 0))
-        decision = json.loads(message["content"])
-        jsonschema.validate(decision, schema)
+        decision = parse(message["content"])
+        check(decision, schema)
         return decision
 
     def _post(self, payload):
@@ -221,7 +328,9 @@ class OpenAI(Backend):
                     wait = exc.headers.get("Retry-After") if exc.headers else None
                     time.sleep(min(float(wait) if wait and wait.replace(".", "", 1).isdigit() else 2 ** attempt, 30))
                     continue
-                raise RuntimeError(f"OpenAI API error {exc.code}: {detail[:300]}") from None
+                # 4xx other than timeout/rate limit will fail identically on every step.
+                error = BackendConfigError if 400 <= exc.code < 500 and exc.code not in (408, 429) else RuntimeError
+                raise error(f"OpenAI API error {exc.code}: {detail[:300]}") from None
 
     def describe(self):
         return {"provider": "openai", "model": self.model, "base_url": self.base_url,

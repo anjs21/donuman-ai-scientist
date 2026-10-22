@@ -156,3 +156,12 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
   backends; shared `Backend.plan/critique`. Legacy `llm` configs still mean Ollama.
 - Campaign logs `llm_backends` and `llm_usage` events. CLI `llm-check`.
 - `config/v3-openai.json`, `config/v3-hybrid.json`; `tests/test_llm.py` (mock server).
+
+# MACE foundation checkpoints
+
+- `warden/models.py` + CLI `fetch-model`: downloads only from a fixed registry of
+  official ACEsuit URLs (MATPES-r2SCAN-0, MATPES-PBE-0, OMAT-0, MPA-0, MP-0a),
+  streams to a temporary file, hashes, refuses tiny/incomplete files and
+  overwrites without --force, requires --accept-license for ASL models, writes
+  `<file>.provenance.json`; `--verify` loads it and evaluates NH3.
+  Default destination `models/mace.model` (what `config/*.json` resolve to).

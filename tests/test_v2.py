@@ -231,7 +231,7 @@ def test_ollama_adapter_uses_structured_output_and_releases_model():
         def do_POST(self):
             request=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
             captured.append(request)
-            decision={'approve':True,'reason':'mock review'} if 'approve' in request['format']['properties'] else {'action':'finish','reason':'mock stop'}
+            decision={'approve':True,'reason':'mock review'} if 'approve' in json.dumps(request['format']) else {'action':'finish','reason':'mock stop'}
             payload=json.dumps({'message':{'content':json.dumps(decision)}}).encode()
             self.send_response(200); self.send_header('Content-Type','application/json'); self.end_headers(); self.wfile.write(payload)
         def log_message(self,*a): pass
@@ -241,7 +241,7 @@ def test_ollama_adapter_uses_structured_output_and_releases_model():
         planner=Ollama({'host':f'http://127.0.0.1:{server.server_port}','model':'mock'})
         assert planner.plan({})['action']=='finish'
         assert planner.critique({}, {'evidence':[],'diagnoses':[]})['approve']
-        assert all(r['keep_alive']==0 and r['format']['type']=='object' for r in captured)
+        assert all(r['keep_alive']==0 and ('anyOf' in r['format'] or r['format']['type']=='object') for r in captured)
     finally:
         server.shutdown(); server.server_close(); thread.join()
 

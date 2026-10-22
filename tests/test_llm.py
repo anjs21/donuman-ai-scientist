@@ -4,7 +4,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 import pytest
-from warden.planner import CRITIC_SCHEMA, SCHEMA, Ollama, OpenAI, make_planner
+from warden.planner import CRITIC_SCHEMA, Ollama, OpenAI, api_schema, make_planner, schema_for
 
 KEY = "sk-test-not-a-real-key"
 
@@ -63,7 +63,7 @@ def test_openai_sends_schema_and_bearer_key_and_counts_usage(key):
     r = m.requests[0]
     assert r["path"] == "/v1/chat/completions" and r["auth"] == "Bearer " + KEY
     fmt = r["body"]["response_format"]
-    assert fmt["type"] == "json_schema" and fmt["json_schema"]["schema"] == SCHEMA
+    assert fmt["type"] == "json_schema" and fmt["json_schema"]["schema"] == api_schema(schema_for())
     assert fmt["json_schema"]["strict"] is False
     assert r["body"]["messages"][0]["role"] == "system"
     assert o.describe()["usage"] == {"calls": 1, "prompt_tokens": 11, "completion_tokens": 3}
@@ -139,12 +139,16 @@ def test_unknown_provider_rejected():
 
 def test_llm_check_cli_against_mock(key, tmp_path, capsys):
     from warden.__main__ import main
-    with Mock([(200, chat_reply({"ok": True, "echo": "WARDEN"}))]) as m:
+    with Mock([(200, chat_reply({"ok": True, "echo": "WARDEN"})),
+               (200, chat_reply({"action": "analogs", "reason": "check"})),
+               (200, chat_reply({"approve": False, "reason": "check"}))]) as m:
         cfg = tmp_path / "c.json"
         cfg.write_text(json.dumps({"llm": {"provider": "openai", "model": "m", "base_url": m.url}}))
         assert main(["llm-check", "--config", str(cfg)]) == 0
     out = capsys.readouterr().out
     assert "planner: openai m" in out and "critic: same backend" in out and KEY not in out
+    assert out.count("campaign schema accepted") == 2
+    assert m.requests[1]["body"]["response_format"]["json_schema"]["schema"]["type"] == "object"
 
 
 @pytest.mark.skipif(not (os.environ.get("WARDEN_LIVE_LLM") and os.environ.get("OPENAI_API_KEY")),
@@ -157,3 +161,69 @@ def test_live_openai_structured_reply():
                           {"type": "object", "properties": {"ok": {"type": "boolean"}, "echo": {"type": "string"}},
                            "required": ["ok", "echo"], "additionalProperties": False})
     assert reply["ok"] is True
+
+
+def test_ollama_caps_reply_length_and_reports_runaway():
+    """Regression: a 7B planner generated for 600 s under the JSON grammar."""
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            Handler.seen = body
+            reply = {"message": {"content": "{\"action\": \"propose\", " + " " * 5000}, "done_reason": "length"}
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
+            self.wfile.write(json.dumps(reply).encode())
+        def log_message(self, *a): pass
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    t = Thread(target=server.serve_forever, daemon=True); t.start()
+    try:
+        o = Ollama({"host": f"http://127.0.0.1:{server.server_port}", "model": "m", "num_predict": 512})
+        with pytest.raises(RuntimeError, match="num_predict=512"):
+            o.plan({})
+        assert Handler.seen["options"]["num_predict"] == 512
+    finally:
+        server.shutdown(); server.server_close(); t.join()
+
+
+def test_openai_gets_root_object_schema_but_branch_rules_still_apply(key):
+    """Regression: a root anyOf schema was rejected by OpenAI (400) on every step."""
+    with Mock([(200, chat_reply({"action": "propose", "reason": "no candidates"}))]) as m:
+        o = OpenAI({"model": "m", "base_url": m.url})
+        with pytest.raises(Exception, match="candidates"):
+            o.plan({"available_actions": ["propose", "analogs"]})
+    sent = m.requests[0]["body"]["response_format"]["json_schema"]["schema"]
+    assert sent["type"] == "object" and "anyOf" not in sent
+    assert sent["properties"]["action"]["enum"] == ["propose", "analogs"]
+    assert sent["required"] == ["action", "reason"]
+
+
+def test_campaign_stops_on_backend_config_error_and_resumes(key, tmp_path):
+    from warden.campaign import run
+    from warden.store import Store
+    store = Store(tmp_path / "c.sqlite")
+    config = {"campaign": {"max_steps": 5, "max_candidates": 2}}
+    with Mock([(400, {"error": {"message": "Invalid schema"}})]) as m:
+        state = run(store, make_planner({"provider": "openai", "model": "m", "base_url": m.url}),
+                    lambda ids, f: None, config)
+    assert state["status"] == "stopped_backend_error" and state["step"] == 0 and len(m.requests) == 1
+    with Mock([(200, chat_reply({"action": "analogs", "reason": "r"}))] * 5) as m:
+        state = run(store, make_planner({"provider": "openai", "model": "m", "base_url": m.url}),
+                    lambda ids, f: None, config)
+    assert state["status"] != "stopped_backend_error" and state["step"] == 5
+
+
+def test_missing_ollama_model_is_a_config_error():
+    from warden.planner import BackendConfigError
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.send_response(404); self.send_header("Content-Type", "application/json"); self.end_headers()
+            self.wfile.write(json.dumps({"error": "model 'qwen2.5:7b' not found"}).encode())
+        def log_message(self, *a): pass
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    t = Thread(target=server.serve_forever, daemon=True); t.start()
+    try:
+        with pytest.raises(BackendConfigError, match="not found"):
+            Ollama({"host": f"http://127.0.0.1:{server.server_port}", "model": "qwen2.5:7b"}).plan({})
+    finally:
+        server.shutdown(); server.server_close(); t.join()
