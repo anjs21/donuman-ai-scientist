@@ -8,11 +8,15 @@ from ase.data import covalent_radii
 import structure_validation as sv
 import surface_builder as sb
 from .common import read_json, file_hash, digest, clean
+from .slab_validation import PROFILE, finite_slab_structure, identify_composition
 
 
 def load_manifest(path, require_valid=True):
     path = Path(path).resolve()
     manifest = read_json(path)
+    profile = manifest.get('validation_profile', 'legacy_bulk_comparison')
+    if profile not in {'legacy_bulk_comparison', PROFILE}:
+        raise ValueError('Unknown surface validation_profile')
     rows, atoms_by_id, seen = [], {}, set()
     for entry in manifest.get("surfaces", []):
         material = entry.get("material")
@@ -24,10 +28,16 @@ def load_manifest(path, require_valid=True):
         checksum = file_hash(filename)
         if checksum in seen:
             raise ValueError("Duplicate surface content in manifest")
+        if entry.get('expected_sha256') and entry['expected_sha256'] != checksum:
+            raise ValueError('Surface checksum differs from the pinned manifest: ' + str(filename))
+        if profile == PROFILE and not entry.get('expected_sha256'):
+            raise ValueError('Finite-slab screening manifests must pin expected_sha256 for every slab')
         seen.add(checksum)
         atoms = read(filename, format=entry.get("format"))
         atoms.set_pbc([True, True, False])
         reasons = []
+        identity, composition_reasons = identify_composition(atoms, material)
+        reasons.extend(composition_reasons)
         if not np.isfinite(atoms.positions).all() or abs(np.linalg.det(atoms.cell)) < 1e-6:
             raise ValueError(f"Invalid positions/cell: {filename}")
         if abs(atoms.cell[0, 2]) > 1e-5 or abs(atoms.cell[1, 2]) > 1e-5:
@@ -40,7 +50,19 @@ def load_manifest(path, require_valid=True):
         radii = covalent_radii[atoms.numbers]
         if (d < .65 * (radii[:, None] + radii[None, :])).any():
             reasons.append("severe atom overlap")
+        # Reject detached molecules/atoms under the same distance-based bond heuristic.
+        from scipy.sparse.csgraph import connected_components
+        adjacency = d < 1.3 * (radii[:, None] + radii[None, :])
+        n_components, _ = connected_components(adjacency, directed=False)
+        if n_components != 1:
+            reasons.append('disconnected substrate atom network; inspect detached species or bond cutoffs')
         structural = sv.validate_structure(atoms, material, verbose=False)
+        density = None
+        warnings = []
+        if profile == PROFILE:
+            structural, density = finite_slab_structure(atoms, material, structural)
+            warnings.append('Bulk density is unverified; finite-slab density is diagnostic, not a passed bulk test.')
+            warnings.append('One slab per material supports a pipeline smoke test, not ensemble representativeness.')
         if not structural["_ok"]:
             reasons.extend("structural: " + k for k, v in structural.items()
                            if not k.startswith("_") and not v["pass"])
@@ -51,6 +73,10 @@ def load_manifest(path, require_valid=True):
         row = {"id": entry.get("id", material + "_" + checksum[:12]),
                "material": material, "path": str(filename), "sha256": checksum,
                "provenance": entry["provenance"], "valid": not reasons,
+               "screening_admitted": not reasons, "scientific_validity": "unverified",
+               "validation_profile": profile, "material_identity": identity,
+               "network_components": int(n_components), "density_diagnostics": density,
+               "warnings": warnings,
                "reasons": reasons, "structural": clean(structural),
                "sites": {k: v["exposed"] for k, v in counts.items()},
                "vacuum_A": float(vacuum)}
@@ -62,8 +88,11 @@ def load_manifest(path, require_valid=True):
     if not rows:
         raise ValueError("Empty surface manifest")
     complete = {r["material"] for r in rows if r["valid"]} == {"SiO2", "SiNx"}
-    report = {"valid": complete and all(r["valid"] for r in rows), "surfaces": rows}
-    report["fingerprint"] = digest([{k: r[k] for k in ("id", "material", "sha256")} for r in rows])
+    report = {"valid": complete and all(r["valid"] for r in rows), "surfaces": rows,
+              "validation_profile": profile, "scientific_success": False,
+              "admission_scope": "numerical_screening_only",
+              "bulk_density_validated": False}
+    report["fingerprint"] = digest({"validation_profile": profile, "surfaces": [{k: r[k] for k in ("id", "material", "sha256")} for r in rows]})
     if require_valid and not report["valid"]:
         raise ValueError("Surface admission failed. Run validate-surfaces and inspect its report; no energies computed.")
     return report, atoms_by_id
