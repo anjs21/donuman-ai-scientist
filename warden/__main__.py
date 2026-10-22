@@ -175,7 +175,7 @@ def kinetics_command(args):
             candidate = store.get('candidate', cid)
             if candidate is None:
                 raise ValueError('Unknown candidate: ' + cid)
-            if candidate['template'] not in kin.SUBSTITUTION:
+            if candidate['template'] not in kin.ATTACHING:
                 store.event('kinetics_skipped', {'candidate_id': cid, 'reason': 'no reaction to compute a barrier for'})
                 continue
             key = digest({'candidate': {k: candidate[k] for k in ('smiles', 'template')},
@@ -209,10 +209,12 @@ def assess_command(args):
             options[key] = tuple(options[key])
     store = Store(args.db)
     try:
-        from .kinetics import DEFAULTS, reclassify
+        from .kinetics import DEFAULTS, apply_observations, reclassify
         rules = {**DEFAULTS, **config.get('kinetics', {})}
         # Stored NEB profiles are re-judged under the current rules; no recomputation.
-        records = [reclassify(r, rules) for r in store.all('kinetics')]
+        # Barriers the decision agent obtained on retries fill sites the screen missed.
+        observations = store.all('observation')
+        records = [apply_observations(reclassify(r, rules), observations) for r in store.all('kinetics')]
         controls = read_json(args.controls) if args.controls else []
         result = assess(records, controls, params, options)
         store.put('assessment', 'latest', result)
@@ -222,7 +224,7 @@ def assess_command(args):
         store.close()
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     write_json(out / 'assessment.json', result)
-    (out / 'assessment.md').write_text(markdown(result))
+    (out / 'assessment.md').write_text(markdown(result), encoding='utf-8')
     print('Assessment:', result['label'], '|', out / 'assessment.md')
 
 
@@ -244,15 +246,34 @@ def decide_command(args):
                                   config.get('kinetics', {}).get('cluster_shells', 3))
         else:
             sites = kin.sites_for('gas')
-        candidates = {c['id']: c for c in store.all('candidate') if c['template'] in kin.SUBSTITUTION}
-        library = []
+        candidates = {c['id']: c for c in store.all('candidate') if c['template'] in kin.ATTACHING
+                      and (not args.ids or c['id'] in args.ids)}
+        if args.ids and set(args.ids) - set(candidates):
+            raise ValueError('Unknown or non-substitution candidate ids: ' + ', '.join(sorted(set(args.ids) - set(candidates))))
+        library, skipped = [], []
         evidence = {e['id']: e for e in store.all('evidence')}
         for raw in (read_json(args.library) if args.library else []):
-            # Literature-backed entries (from lit-import) carry evidence references,
-            # re-checked against this database's evidence.
-            spec = validate_candidate(raw, evidence)
-            if spec['template'] in kin.SUBSTITUTION and spec['id'] not in candidates:
+            # One unusable entry (a mechanism not implemented, a bad name) must not stop the
+            # run: it is skipped and reported. Literature-backed entries (from lit-import)
+            # carry evidence references, re-checked against this database's evidence.
+            if raw.get('computable') is False:
+                skipped.append({'name': raw.get('name'), 'reason': raw.get('status') or 'marked not computable'})
+                continue
+            if raw.get('predicted_direction') == 'prefers_SiO2':
+                # A wrong-direction reference: compute it as a control (`warden kinetics`), not as a candidate.
+                skipped.append({'name': raw.get('name'), 'reason': 'reference predicted to prefer SiO2 (control, not a candidate)'})
+                continue
+            try:
+                spec = validate_candidate(raw, evidence)
+            except ValueError as exc:
+                skipped.append({'name': raw.get('name'), 'reason': str(exc)})
+                continue
+            if spec['template'] not in kin.ATTACHING:
+                skipped.append({'name': spec['name'], 'reason': f"template {spec['template']} has no barrier model"})
+            elif spec['id'] not in candidates:
                 library.append(spec)
+        for item in skipped:
+            print(f"library entry skipped: {item['name']}: {item['reason']}")
         if args.candidates:
             for raw in read_json(args.candidates):
                 spec = validate_candidate(raw)
@@ -276,17 +297,22 @@ def decide_command(args):
         if args.total_budget is not None:
             budget = min(budget, max(args.total_budget - spent_before, 0.))
             print(f"decide budget: {budget:.1f} this run ({spent_before:.1f} of {args.total_budget:.1f} spent before)")
+
+        def next_actions(budget_left):
+            _, shortlist = dc.Agent(belief, methods, library, cfg).choose(budget_left)
+            return [f"{a.kind} {belief.candidates.get(a.candidate, {}).get('name', a.extra.get('name', ''))} "
+                    f"{a.site or ''} {a.pathway or ''} {a.method or ''}: value/cost {a.score():.3g}, "
+                    f"P(success) {a.p_success:.2f}" for a in shortlist]
+
         if args.dry_run:
-            agent = dc.Agent(belief, methods, library, cfg)
-            action, shortlist = agent.choose(budget)
             result = {"pick": None, "pcs": belief.pcs(), "spent": 0., "budget": budget,
                       "stop": "dry_run", "scores": belief.scores(), "trace": [],
                       "methods": belief.methods.report(), "failures": belief.failures.report()}
-            result["next"] = [f"{a.kind} {candidates.get(a.candidate, {}).get('name', a.extra.get('name', ''))} "
-                              f"{a.site or ''} {a.pathway or ''} {a.method or ''}: value/cost {a.score():.3g}, "
-                              f"P(success) {a.p_success:.2f}" for a in shortlist]
+            result["next"] = next_actions(budget)
         else:
-            executor = dc.LiveExecutor(sites, config.get('kinetics', {}), str(out / 'paths'), cfg['methods'])
+            # MACE needs the engine block (model_path, device, dtype); kinetics settings take precedence.
+            executor = dc.LiveExecutor(sites, {**config.get('engine', {}), **config.get('kinetics', {})},
+                                       str(out / 'paths'), cfg['methods'])
 
             def log(record):
                 store.event('decision', record)
@@ -303,6 +329,8 @@ def decide_command(args):
             result["stop"] = next((t["stop"] for t in reversed(result["trace"]) if "stop" in t), "max_steps")
             for cid, spec in belief.candidates.items():
                 store.put('candidate', cid, spec)
+            result["next"] = next_actions(max(budget - result["spent"], 0.)) if belief.candidates else []
+        result["library_skipped"] = skipped
         result["total_spent"] = spent_before + result["spent"]
         result["total_budget"] = args.total_budget
         result["names"] = {c: s.get('name', c) for c, s in belief.candidates.items()}
@@ -315,20 +343,26 @@ def decide_command(args):
                                                     kin.molecular_mass(belief.candidates[result["pick"]]))
         result["note"] = ("Decisions use a hierarchical Gaussian belief with stated priors; "
                           "method biases are learned only from results paired with the reference method.")
+        names = result["names"]
+        # Compact ranking for the campaign planner and critic (campaign.decision_context -> agent_ranking).
+        store.put('decision', 'latest', {"pick": names.get(result.get("pick"), result.get("pick")),
+                                         "pcs": result["pcs"], "stop": result["stop"], "spent": result["spent"],
+                                         "budget": budget, "next": result.get("next", [])[:3],
+                                         "scores": {names.get(c, c): round(v, 2) for c, v in result["scores"].items()},
+                                         "meaning": "dose-window feasibility margin (decades) at the best "
+                                                    "temperature; negative = infeasible by that many decades"})
         write_json(out / 'decisions.json', result)
-        # What the LLM campaign planner sees of this agent's ranking (campaign.context).
-        store.put('decide_summary', 'latest', {
-            "scores_decades": {result["names"].get(c, c): round(v, 2) for c, v in result["scores"].items()},
-            "pick": result["names"].get(result["pick"], result["pick"]), "pcs": result["pcs"],
-            "stop": result["stop"], "next": result.get("next", []),
-            "meaning": "dose-window feasibility margin at the best temperature; negative = infeasible by that many decades"})
-        (out / 'decisions.md').write_text(dc.markdown(result))
+        (out / 'decisions.md').write_text(dc.markdown(result), encoding='utf-8')
         print('Decision report:', out / 'decisions.md')
     finally:
         store.close()
 
 
 def main(argv=None):
+    for stream in (sys.stdout, sys.stderr):
+        # Literature text (Greek letters, curly quotes) must not crash a cp1252 console.
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(errors='backslashreplace')
     p = argparse.ArgumentParser(description='WARDEN v2: evidence-driven AS-ALD screening')
     commands = p.add_subparsers(dest='command', required=True)
     d = commands.add_parser('demo', help='Synthetic offline control-flow test; no scientific predictions')
@@ -353,6 +387,14 @@ def main(argv=None):
     li = commands.add_parser('lit-import', help='Validate literature-backed candidates into a decide library')
     li.add_argument('--db', required=True); li.add_argument('--candidates', required=True)
     li.add_argument('--out', required=True, help='Library JSON for `warden decide --library`')
+
+    s = commands.add_parser('search', help='Call one allowlisted literature tool and store the result as evidence')
+    s.add_argument('--db', required=True); s.add_argument('--config', required=True)
+    s.add_argument('--tool', required=True); s.add_argument('--arguments', default='{}', help='JSON object')
+    an = commands.add_parser('analogs', help='Deterministic analog design around a stored candidate')
+    an.add_argument('--db', required=True); an.add_argument('--id', required=True)
+    an.add_argument('--direction', default='all', choices=['more_reactive', 'less_reactive', 'bulkier', 'all'])
+    an.add_argument('--limit', type=int, default=8); an.add_argument('--store', action='store_true')
     r = commands.add_parser('report')
     r.add_argument('--db', required=True); r.add_argument('--out', default='runs/report')
     for name in ('screen', 'campaign'):
@@ -381,6 +423,7 @@ def main(argv=None):
     dd.add_argument('--sites', choices=['gas', 'manifest'], default='gas'); dd.add_argument('--manifest')
     dd.add_argument('--allow-unadmitted', action='store_true')
     dd.add_argument('--candidates'); dd.add_argument('--library')
+    dd.add_argument('--ids', nargs='+', help='Restrict decisions to these stored candidates')
     dd.add_argument('--methods', nargs='+', default=['xtb'], choices=['xtb', 'mace', 'dft'])
     dd.add_argument('--budget', type=float, default=10.); dd.add_argument('--out', default='runs/decide')
     dd.add_argument('--total-budget', type=float,
@@ -471,6 +514,30 @@ def main(argv=None):
         try:
             if args.command == 'add-evidence':
                 add_evidence(store, args.file)
+            elif args.command == 'search':
+                import json as _json
+                from .literature import Bond, dois, result_text
+                bond = Bond(read_json(args.config))
+                text = result_text(bond.call(args.tool, _json.loads(args.arguments)))
+                key = store.evidence(text, {'provider': 'BOND', 'tool': args.tool,
+                                            'arguments': _json.loads(args.arguments)}, 'bond_result')
+                for doi in dois(text):
+                    if store.get('paper', doi) is None:
+                        store.put('paper', doi, {'doi': doi, 'evidence_id': key, 'first_step': None})
+                print(text)
+                print('\nStored as evidence', key)
+            elif args.command == 'analogs':
+                from .analogs import enumerate_analogs, as_evidence_text
+                parent = store.get('candidate', args.id)
+                if parent is None:
+                    raise ValueError('Unknown candidate: ' + args.id)
+                designs = enumerate_analogs(parent, args.direction, args.limit,
+                                            [c['canonical_smiles'] for c in store.all('candidate')])
+                text = as_evidence_text(parent, designs, args.direction)
+                print(text)
+                if args.store:
+                    print('\nStored as evidence', store.evidence(text, {'provider': 'warden.analogs', 'parent': parent['id'],
+                                                                       'direction': args.direction}, 'analog_design'))
             elif args.command == 'import-results':
                 rows = read_json(args.file)
                 if not isinstance(rows, list):
@@ -494,12 +561,13 @@ def main(argv=None):
                     add_evidence(store, args.evidence)
                 if any(e['kind'] == 'synthetic_demo' for e in store.all('evidence')):
                     raise ValueError('Synthetic evidence cannot be used in a live campaign; use a fresh DB')
-                runner = subprocess_runner(Path(args.db).resolve(), Path(args.manifest).resolve(),
-                                           Path(args.config).resolve(),
-                                           config.get('campaign', {}).get('worker_timeout_s', 1800),
-                                           config.get('campaign', {}).get('kinetics', False),
-                                           Path(args.controls).resolve() if args.controls else None)
-                state = run(store, Ollama(config['llm']), runner, config, bond)
+                runner, repairer = subprocess_runner(Path(args.db).resolve(), Path(args.manifest).resolve(),
+                                                     Path(args.config).resolve(),
+                                                     config.get('campaign', {}).get('worker_timeout_s', 1800),
+                                                     config.get('campaign', {}).get('kinetics', False),
+                                                     Path(args.controls).resolve() if args.controls else None,
+                                                     config.get('campaign', {}).get('kinetics_sites', 'manifest'))
+                state = run(store, Ollama(config['llm']), runner, config, bond, repairer=repairer)
                 print('Campaign:', state['status'], '| scientific_success: false')
             from .report import export
             export(store, args.out if args.command == 'report' else Path(args.db).resolve().parent)

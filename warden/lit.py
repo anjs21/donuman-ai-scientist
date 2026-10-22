@@ -134,7 +134,8 @@ QUESTION_TEMPLATES = {
         "{name} vapor phase surface modification selectivity",
     ],
 }
-REACTION = {"acylation": "acylation", "silyl_substitution": "silylation", "physisorption": "adsorption"}
+REACTION = {"acylation": "acylation", "silyl_substitution": "silylation", "physisorption": "adsorption",
+            "carbonyl_addition": "aldehyde/ketone addition"}
 
 
 def questions(record, found):

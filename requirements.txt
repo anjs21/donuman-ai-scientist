@@ -19,4 +19,7 @@ torch>=2.1
 #   1. install Ollama:  https://ollama.com  (or the standalone tarball)
 #   2. ollama serve &   ; ollama pull qwen2.5:7b-instruct-q4_K_M
 #   3. streamlit run app.py
+# NOTE: app.py and run_pipeline.py are currently disabled (they exit at start)
+# because they bypass the WARDEN v2 surface-admission and reporting gates.
+# The supported workflow is `python -m warden` with requirements-v2.txt; see RUN_ORDER.md.
 streamlit>=1.30

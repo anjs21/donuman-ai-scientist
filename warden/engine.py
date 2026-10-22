@@ -13,7 +13,7 @@ from ase.data import covalent_radii
 from ase.geometry import find_mic
 from ase.io import write
 from ase.optimize import BFGS
-from .chemistry import SUBSTITUTION, geometries, rotation
+from .chemistry import ATTACHING, SUBSTITUTION, geometries, rotation
 from .common import digest, file_hash, clean
 from .metrics import evaluate
 from .surfaces import representatives
@@ -26,7 +26,8 @@ DEFAULTS = {"max_sites": 2, "n_conformers": 3, "orientations": 4,
 
 # Anchor--surface heteroatom bond lengths used for initial placement (Angstrom).
 BOND_LENGTH = {("silyl_substitution", 8): 1.65, ("silyl_substitution", 7): 1.75,
-               ("acylation", 8): 1.43, ("acylation", 7): 1.47}
+               ("acylation", 8): 1.43, ("acylation", 7): 1.47,
+               ("carbonyl_addition", 8): 1.43, ("carbonyl_addition", 7): 1.47}
 
 
 def calculator(config):
@@ -97,7 +98,7 @@ def place(slab, site, geo, template, orientation, total):
     site_element = slab.numbers[site]
     zc = (slab.positions[:, 2].max() + slab.positions[:, 2].min()) / 2
     normal = np.array([0., 0., 1. if site_pos[2] >= zc else -1.])
-    if template in SUBSTITUTION:
+    if template in ATTACHING:
         h = [i for i, n in enumerate(slab.numbers) if n == 1 and
              slab.get_distance(site, i, mic=True) < 1.25 * (covalent_radii[n] + covalent_radii[slab.numbers[site]])]
         if not h:
@@ -132,7 +133,7 @@ def check_product(atoms, n_substrate, site, geo, template):
         raise ValueError("adsorbate_connectivity_changed")
     full_graph = graph(atoms)
     cross = {(i, j) for i, j in full_graph if i < n_substrate <= j}
-    expected = {(site, n_substrate)} if template in SUBSTITUTION else set()
+    expected = {(site, n_substrate)} if template in ATTACHING else set()
     if cross != expected:
         raise ValueError("attachment_or_reaction_identity_changed")
     if template == "physisorption":

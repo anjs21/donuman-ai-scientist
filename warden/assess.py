@@ -20,11 +20,20 @@ def direction(kinetics):
 
 
 def consensus(records):
-    """Merge per-method records of one candidate; disagreement becomes sigma."""
-    by_method = {r["method"]: r for r in records}
+    """Merge per-method records of one candidate; disagreement becomes sigma.
+
+    Records are grouped by (method, site source): gas-model and slab-cluster
+    screens with the same method are different evidence, not duplicates.
+    Slab clusters are preferred as the primary record when both exist.
+    """
+    by_method = {}
+    for r in records:
+        key = r["method"] if r.get("sites_source") in (None, "manifest") else f"{r['method']}:{r['sites_source']}"
+        by_method[key] = r
     deltas = {m: (r.get("summary") or {}).get("dEa_GS_minus_NGS_eV") for m, r in by_method.items()}
     known = [d for d in deltas.values() if d is not None]
-    primary = by_method.get("dft") or by_method.get("xtb") or next(iter(by_method.values()))
+    primary = next((by_method[k] for k in ("dft", "xtb", "mace") if k in by_method),
+                   next(iter(by_method.values())))
     merged = dict(primary)
     merged["methods"] = deltas
     merged["method_disagreement_eV"] = float(np.ptp(known)) if len(known) > 1 else None

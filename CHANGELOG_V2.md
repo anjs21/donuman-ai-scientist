@@ -1,3 +1,42 @@
+# Merge: literature + neji_dev_2 (branch merge-neji-dev-2)
+
+Both branches started from master 623e2ac. `literature` reworked the
+evidence-acquisition agent (`decide`) and the barrier physics; `neji_dev_2`
+built the agentic campaign (live Valency search, analog design, aldehyde
+template, notebook). Integration decisions:
+
+- Kept from literature: the `decide` agent (class sharing, all library
+  molecules valued, fastest orientation, untried orientations only, method
+  pairing per orientation, budget ledger, add-with-first-calculation),
+  barrierless paths as fast reactions, dose-window criterion, lit-brief /
+  lit-import, benchmark. neji_dev_2 had not changed `decide`.
+- Kept from neji_dev_2: `rotation()` no longer normalises its input in place
+  (literature still displaced the leaving group in starting geometries),
+  `carbonyl_addition`, `analogs`, campaign actions analogs/repair, notebook and
+  hypothesis tracking, BOND result text and DOI tracking, reference-structure
+  exemptions, gas/slab consensus, MACE engine settings for `decide`, UTF-8 I/O,
+  literature candidates and evidence (`examples/*-literature.json`).
+- Reconciled:
+  - `Store.recent` existed twice with opposite order (git merged it silently);
+    kept newest-first, which neji_dev_2's callers need.
+  - Quote checks: normalised matching (literature) plus the 5-word minimum.
+  - `reclassify`: barrierless-aware best attempt (literature) with binding
+    re-based on each attempt's own reactant complex (neji_dev_2).
+  - `apply_observations` (repair -> assess): a faster repaired path now also
+    lowers a valid site; previously valid sites were never changed, which
+    ignores e.g. a barrierless oxide route found by repair.
+  - Hypothesis tracking: kinetics re-scored under current rules; a
+    SiNx-selective prediction is `supported` only with a positive dose-window
+    margin, otherwise `direction_only`.
+  - One planner record (`decision`) exposed to the planner and critic as
+    `agent_ranking`, with the meaning of the margin.
+  - `decide --library` skips entries marked not computable, wrong-direction
+    references (`predicted_direction: prefers_SiO2`, controls) and invalid
+    entries, and reports them instead of aborting.
+  - The `carbonyl_addition` four-centre tilt has the same period as the spin.
+  - Benchmark worlds draw numbers only for templates present, so new
+    templates do not change published benchmark worlds.
+
 # Changes from the linked repository
 
 - Added the `warden` package, CLI, configurations, evidence/candidate/manifest
@@ -80,3 +119,31 @@ Scientific scope and remaining limitations are documented in RUN_ORDER.md.
 - `add-evidence` prints the evidence IDs it stores.
 - Claude Code: install commands in BOND_SEARCH.md; project skill
   `.claude/skills/warden-literature`; tracked `evidence/` folder.
+
+# Agentic campaign additions (branch neji_dev_2)
+
+- Planner actions `analogs` and `repair` beside `search`, `propose`, `refine`,
+  `finish`; every action may carry a `lesson`. Budgets: `campaign.max_repairs`,
+  `campaign.repair_budget`, `campaign.max_analog_calls`.
+- Literature mining (`warden/literature.py`, `campaign.py`): results are stored as
+  plain decoded text so verbatim quotes match; DOIs are tracked as `paper`
+  records; identical searches are refused; tool descriptions are compacted.
+  `config/valency.example.json` connects the Valency Bond MCP server
+  (ChemRxiv, PubMed, arXiv...) through `mcp-remote` with read-only tools allowlisted.
+- `warden/analogs.py`: deterministic leaving-group, steric and aromatic
+  substituent analogs with descriptors, stored as quotable `analog_design`
+  evidence; CLI `warden analogs`.
+- Self-repair: `repair` runs `warden decide --ids ...` on failed/uncertain
+  barriers; `assess` now merges valid decision-agent observations into failed
+  kinetics sites (`kinetics.apply_observations`), and `decide` stores a compact
+  `decision` record for the planner.
+- `warden/notebook.py`: campaign notebook (planner lessons, outcomes, rejections)
+  fed back each step; code-scored hypothesis status
+  (supported/refuted/inconclusive/untested) from computed contrasts and barriers.
+  Both appear in report.md/json with retrieved papers.
+- CLI `warden search` stores one literature call as evidence.
+- `examples/candidates-literature.json`: literature candidates from Valency with
+  DOIs and verbatim abstract quotes (verified against the retrieved records).
+  Propanoyl chloride and BDMADMS are computable now; the aldehydes (the
+  literature's SiN-selective class) and the cyclic azasilane need new
+  carbonyl-addition / ring-opening templates.

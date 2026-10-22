@@ -63,9 +63,10 @@ def load_manifest(path, require_valid=True):
             structural, density = finite_slab_structure(atoms, material, structural)
             warnings.append('Bulk density is unverified; finite-slab density is diagnostic, not a passed bulk test.')
             warnings.append('One slab per material supports a pipeline smoke test, not ensemble representativeness.')
+        exemptions = reference_exemptions(entry)
         if not structural["_ok"]:
             reasons.extend("structural: " + k for k, v in structural.items()
-                           if not k.startswith("_") and not v["pass"])
+                           if not k.startswith("_") and not v["pass"] and k not in exemptions)
         counts = sb.classify_sites(atoms, material, exposure_filter=True)
         ok, gate_reasons = sb.slab_passes_quality_gate(
             counts, sb.surface_area_nm2(atoms), material, atoms=atoms)
@@ -79,6 +80,9 @@ def load_manifest(path, require_valid=True):
                "warnings": warnings,
                "reasons": reasons, "structural": clean(structural),
                "sites": {k: v["exposed"] for k, v in counts.items()},
+               "exemptions": {k: {"measured": structural.get(k, {}).get("value"),
+                                  "passed_anyway": bool(structural.get(k, {}).get("pass")),
+                                  **entry["reference_structure"]} for k in exemptions},
                "coordination_defects": coordination_defects(atoms),
                "vacuum_A": float(vacuum)}
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", row["id"]):
@@ -93,10 +97,38 @@ def load_manifest(path, require_valid=True):
               "validation_profile": profile, "scientific_success": False,
               "admission_scope": "numerical_screening_only",
               "bulk_density_validated": False}
-    report["fingerprint"] = digest({"validation_profile": profile, "surfaces": [{k: r[k] for k in ("id", "material", "sha256")} for r in rows]})
+    report["fingerprint"] = digest({"validation_profile": profile, "surfaces": [
+        {k: r[k] for k in ("id", "material", "sha256", "exemptions")} for r in rows]})
     if require_valid and not report["valid"]:
         raise ValueError("Surface admission failed. Run validate-surfaces and inspect its report; no energies computed.")
     return report, atoms_by_id
+
+
+# Checks a published reference structure may be exempted from. Only the slab
+# density estimate qualifies: on thin passivated slabs it is biased by the
+# rough surface layers (whole-slab extent under-reads, interior trimming
+# over-reads), while geometry, overlap, RDF/coordination and site-density
+# checks remain meaningful and always gate.
+EXEMPTABLE = {"density_gcc"}
+
+
+def reference_exemptions(entry):
+    """Exempted check names for a manifest entry, validated.
+
+    "reference_structure": {"citation": "...", "doi": "...", "reason": "...",
+                            "exempt_checks": ["density_gcc"]}
+    """
+    ref = entry.get("reference_structure")
+    if not ref:
+        return set()
+    checks = set(ref.get("exempt_checks", []))
+    if not checks:
+        raise ValueError("reference_structure needs exempt_checks")
+    if checks - EXEMPTABLE:
+        raise ValueError(f"Only {sorted(EXEMPTABLE)} can be exempted for a reference structure")
+    if not str(ref.get("citation", "")).strip() or not str(ref.get("reason", "")).strip():
+        raise ValueError("A reference-structure exemption needs a citation and a reason")
+    return checks
 
 
 IDEAL_COORDINATION = {14: 4, 7: 3, 8: 2}

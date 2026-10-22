@@ -23,7 +23,7 @@ from ase.neighborlist import NeighborList
 from ase.optimize import BFGS, FIRE
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from .chemistry import H_LENGTH, SUBSTITUTION, rotation
+from .chemistry import ADDITION, ATTACHING, H_LENGTH, SUBSTITUTION, addition_frame, rotation
 from .common import clean
 
 KB_EV = 8.617333262e-5
@@ -35,9 +35,12 @@ DEFAULTS = {"method": "xtb", "n_images": 7, "fmax": 0.05, "neb_fmax": 0.1,
 STRUCTURE_FACTOR = 1.15
 CAP_LENGTH = {14: 1.48, 8: 0.97, 7: 1.01, 6: 1.09}
 BOND_LENGTH = {("silyl_substitution", 8): 1.65, ("silyl_substitution", 7): 1.75,
-               ("acylation", 8): 1.36, ("acylation", 7): 1.38}
+               ("acylation", 8): 1.36, ("acylation", 7): 1.38,
+               ("carbonyl_addition", 8): 1.43, ("carbonyl_addition", 7): 1.47}
 PATHWAYS = {"acylation": ("addition", "four_centre"),
-            "silyl_substitution": ("four_centre", "backside")}
+            "silyl_substitution": ("four_centre", "backside"),
+            # Concerted X-H...O=C ring (proton to O as X-C forms) or perpendicular attack.
+            "carbonyl_addition": ("four_centre", "addition")}
 GAS_SITES = {"SiNx": {"NH2": "[SiH3][NH2:1]", "NH_bridge": "[SiH3][NH:1][SiH3]"},
              "SiO2": {"OH": "[SiH3][OH:1]"}}
 
@@ -147,6 +150,8 @@ def molecule(spec, seed=42):
                   positions=mol.GetConformer().GetPositions())
     anchor = next(a.GetIdx() for a in mol.GetAtoms() if a.GetAtomMapNum() == 1)
     leaving = next(a.GetIdx() for a in mol.GetAtoms() if a.GetAtomMapNum() == 2)
+    if spec["template"] in ADDITION:
+        return atoms, anchor, leaving, []   # map 2 is the proton acceptor; nothing leaves
     cut = Chem.RWMol(mol); cut.RemoveBond(anchor, leaving)
     lost = next(g for g in Chem.GetMolFrags(cut) if leaving in g)
     return atoms, anchor, leaving, sorted(lost)
@@ -174,8 +179,8 @@ def endpoints(substrate, site, normal, spec, config, orientation=0, pathway=None
       backside    -- nucleophile opposite the leaving group
     """
     template = spec["template"]
-    if template not in SUBSTITUTION:
-        raise ValueError("Barriers need a substitution template")
+    if template not in ATTACHING:
+        raise ValueError("Barriers need a substitution or addition template")
     pathway = pathway or PATHWAYS[template][0]
     if pathway not in PATHWAYS[template]:
         raise ValueError(f"pathway {pathway} not implemented for {template}")
@@ -187,6 +192,9 @@ def endpoints(substrate, site, normal, spec, config, orientation=0, pathway=None
     h = min(hydrogens, key=lambda i: substrate.get_distance(site, i))
     pos = mol.positions - mol.positions[anchor]
     spin = _spin(normal, 2 * np.pi * orientation / config["orientations"])
+    if template in ADDITION:
+        return _addition_endpoints(substrate, site, normal, h, mol, anchor, leaving, pos, spin,
+                                   template, pathway, orientation, config)
     if pathway == "addition":
         oxygen = next(i for i in np.flatnonzero(bonded(mol)[anchor])
                       if mol.numbers[i] == 8 and i != leaving)
@@ -225,6 +233,36 @@ def endpoints(substrate, site, normal, spec, config, orientation=0, pathway=None
                                "molecule": mol, "lost": [n0 + i for i in lost]}
 
 
+def _addition_endpoints(substrate, site, normal, h, mol, anchor, acceptor, pos, spin,
+                        template, pathway, orientation, config):
+    """Surface X-H across C=O: X-C forms and the proton moves to O (map 2)."""
+    site_pos = substrate.positions[site]
+    if pathway == "four_centre":
+        # C=O leans toward the surface proton so X, H, O and C can close a ring.
+        toward = substrate.positions[h] - site_pos
+        toward -= (toward @ normal) * normal
+        toward = toward / np.linalg.norm(toward) if np.linalg.norm(toward) > 1e-3 else _perpendicular(normal)
+        tilt = np.radians(60 + 15 * (orientation % config["orientations"]))  # same period as the spin
+        reactant_pos = pos @ rotation(pos[acceptor], -np.cos(tilt) * normal + np.sin(tilt) * toward).T
+    else:
+        # Perpendicular (Burgi-Dunitz-like) attack on the carbonyl plane.
+        other = next(i for i in np.flatnonzero(bonded(mol)[anchor]) if i != acceptor)
+        reactant_pos = pos @ rotation(np.cross(pos[acceptor], pos[other]), normal).T @ spin.T
+    reactant = substrate.copy()
+    placed = mol.copy(); placed.positions = reactant_pos + site_pos + config["attack_distance_A"] * normal
+    reactant += placed
+    frame, proton = addition_frame(mol.get_chemical_symbols(), pos, anchor, acceptor, H_LENGTH["O"])
+    to_surface = rotation([0., 0., 1.], normal).T @ spin.T
+    length = BOND_LENGTH[template, int(substrate.numbers[site])]
+    product = reactant.copy()
+    product.positions[len(substrate):] = frame @ to_surface + site_pos + length * normal
+    product.positions[h] = proton @ to_surface + site_pos + length * normal
+    n0 = len(substrate)
+    return reactant, product, {"site": site, "proton": int(h), "anchor": n0 + anchor,
+                               "leaving": n0 + acceptor, "n_substrate": n0, "molecule": mol,
+                               "lost": [], "template": template}
+
+
 def _relax(atoms, factory, frozen, fmax, steps):
     atoms = atoms.copy()
     atoms.set_constraint(FixAtoms(indices=frozen) if frozen else [])
@@ -246,7 +284,9 @@ def check_reactant(atoms, m):
 
 def check_product(atoms, m):
     b = bonded(atoms)
-    if not b[m["site"], m["anchor"]] or b[m["anchor"], m["leaving"]]:
+    # Substitution breaks anchor-X; addition keeps C-O (now single) and protonates O.
+    keeps_anchor_bond = m.get("template") in ADDITION
+    if not b[m["site"], m["anchor"]] or bool(b[m["anchor"], m["leaving"]]) != keeps_anchor_bond:
         raise ValueError("product_not_formed")
     if not b[m["proton"], m["leaving"]] or b[m["site"], m["proton"]]:
         raise ValueError("proton_transfer_not_completed")
@@ -376,15 +416,53 @@ def reclassify(record, config=None):
         else:  # records written before best_attempt existed
             old = next((a for a in previous if a.get("Ea_eV") == site.get("Ea_eV")
                         and site.get("Ea_eV") is not None), None)
+        # Binding = E(pre-complex image) - E_substrate - E_molecule. Recover the reference
+        # energies from the attempt that carried the stored binding, then re-evaluate on
+        # the newly selected attempt's own reactant complex.
         binding = site.get("precomplex_binding_eV")
-        if binding is not None and old is not None:
-            binding -= old.get("precomplex_shift_eV", 0.)  # back to the relaxed-start reference
-        if binding is not None and best is not None:
-            binding += best["precomplex_shift_eV"]
+        if binding is not None and old is not None and best is not None \
+                and old.get("e_reactant_complex_eV") is not None and best.get("e_reactant_complex_eV") is not None:
+            references = old["e_reactant_complex_eV"] + old.get("precomplex_shift_eV", 0.) - binding
+            binding = best["e_reactant_complex_eV"] + best["precomplex_shift_eV"] - references
+        elif binding is not None and best is not None:
+            # Legacy record without per-attempt reactant energies.
+            binding += best["precomplex_shift_eV"] - (old or {}).get("precomplex_shift_eV", 0.)
         site.update(attempts=attempts, precomplex_binding_eV=binding if best else None, **site_fields(best))
         rows.append(site)
     record.update(sites=rows, summary=summarize(rows), classification_rules=
                   {k: config[k] for k in ("min_barrier_eV", "max_image_jump_eV")})
+    return record
+
+
+def apply_observations(record, observations):
+    """Fill failed sites of a kinetics record from decision-agent observations.
+
+    observations: stored decide.Observation dicts. Only valid barriers from the
+    record's own method and candidate count; a site's barrier is the lowest over
+    the pathways observed (the fastest channel caps the site). A failed site takes
+    the fastest observed path; a valid site is lowered only if an observed path is
+    faster, since ignoring a faster path (e.g. a barrierless oxide route found by
+    repair) would overstate selectivity.
+    """
+    record = dict(record)
+    usable = [o for o in observations if o.get("candidate") == record["candidate_id"]
+              and o.get("method") == record["method"] and o.get("status") == "valid"
+              and o.get("Ea_eV") is not None]
+    if not usable:
+        return record
+    rows, repaired = [], []
+    for site in record["sites"]:
+        site = dict(site)
+        found = [o for o in usable if o["site"] == site["label"]]
+        best = min(found, key=lambda o: o["Ea_eV"]) if found else None
+        if best is not None and (site["status"] != "valid" or best["Ea_eV"] < site["Ea_eV"]):
+            site.update(status="valid", Ea_eV=best["Ea_eV"], dE_rxn_eV=best.get("dE_rxn_eV"),
+                        barrierless=best.get("reason") == "barrierless",
+                        precomplex_binding_eV=None, repaired_by={"pathway": best["pathway"],
+                                                                 "source": best.get("source")})
+            repaired.append(site["label"])
+        rows.append(site)
+    record.update(sites=rows, summary=summarize(rows), repaired_sites=repaired)
     return record
 
 

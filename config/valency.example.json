@@ -1,0 +1,13 @@
+{
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "mcp-remote", "https://mcp.valency.io/"],
+  "allowed_tools": [
+    "semantic_search_papers",
+    "search_by_abstract",
+    "find_papers_by_researcher",
+    "count_papers",
+    "get_keyword_trends"
+  ],
+  "note": "Valency Bond MCP (ChemRxiv and other sources; https://valency-oss.github.io/oss-hack/). Read-only search tools named on that page. Copy to config/bond.json, run `python -m warden bond-tools --config config/bond.json` (a browser sign-in opens once) and confirm these names are in the returned inventory before a campaign."
+}

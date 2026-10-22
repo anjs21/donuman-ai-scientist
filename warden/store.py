@@ -36,16 +36,15 @@ class Store:
         return [json.loads(r[0]) for r in self.db.execute(
             "SELECT body FROM records WHERE kind=? ORDER BY id", (kind,))]
 
+    def recent(self, kind, limit):
+        """Most recently written records first (INSERT OR REPLACE assigns a new rowid)."""
+        return [json.loads(r[0]) for r in self.db.execute(
+            "SELECT body FROM records WHERE kind=? ORDER BY rowid DESC LIMIT ?", (kind, int(limit)))]
+
     def event(self, kind, body):
         self.db.execute("INSERT INTO events(time,kind,body) VALUES (?,?,?)",
                         (datetime.now(timezone.utc).isoformat(), kind, dumps(body)))
         self.db.commit()
-
-    def recent(self, kind, n):
-        """The n records of one kind written last, oldest first (rewrites move a record to the end)."""
-        rows = self.db.execute("SELECT body FROM records WHERE kind=? ORDER BY rowid DESC LIMIT ?",
-                               (kind, n)).fetchall()
-        return [json.loads(r[0]) for r in reversed(rows)]
 
     def events(self, kind):
         """Event bodies of one kind, oldest first."""

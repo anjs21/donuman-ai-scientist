@@ -172,6 +172,27 @@ def test_agent_observation_site_type_is_looked_up_not_parsed():
     assert types == {"slab1:12:top": "NH2", "gas:NH_bridge": "NH_bridge"}
 
 
+def test_decide_library_skips_controls_and_unusable_entries(tmp_path):
+    db = tmp_path / "c.sqlite"
+    store = Store(db)
+    store.put("kinetics", "k1", json.loads(FIXTURE.read_text()))
+    spec = validate_candidate({"name": "acetyl chloride", "smiles": "C[C:1](=O)[Cl:2]", "template": "acylation"})
+    store.put("candidate", spec["id"], spec)
+    store.close()
+    r = subprocess.run([sys.executable, "-m", "warden", "decide", "--db", str(db), "--sites", "gas", "--budget", "6",
+                        "--dry-run", "--library", str(ROOT / "examples/candidates-literature.json"),
+                        "--out", str(tmp_path / "d")], cwd=ROOT, capture_output=True, text=True, timeout=300)
+    assert r.returncode == 0, r.stderr
+    result = json.loads((tmp_path / "d/decisions.json").read_text())
+    skipped = {x["name"] for x in result["library_skipped"]}
+    assert skipped == {"BDMADMS", "N-methyl-aza-2,2,4-trimethylsilacyclopentane"}
+    offered = [n for n in result["next"] if n.startswith("add_molecule")]
+    assert offered and not any("BDMADMS" in n for n in offered)
+    # Acylation just failed on acetyl chloride, so another acyl chloride ranks below the aldehydes.
+    value = {n.split()[1]: float(n.split("value/cost ")[1].split(",")[0]) for n in offered}
+    assert value["propanoyl"] < value["pivaldehyde"] == value["glutaraldehyde"]
+
+
 def test_decide_total_budget_caps_this_run(tmp_path):
     db = tmp_path / "c.sqlite"
     store = Store(db)
@@ -186,8 +207,8 @@ def test_decide_total_budget_caps_this_run(tmp_path):
     assert r.returncode == 0, r.stderr
     result = json.loads((tmp_path / "d/decisions.json").read_text())
     assert result["budget"] == 2. and result["total_spent"] == 8.
-    summary = Store(db).get("decide_summary", "latest")
-    assert summary["pick"] == "acetyl chloride" and "scores_decades" in summary
+    summary = Store(db).get("decision", "latest")          # what the campaign planner sees
+    assert summary["pick"] == "acetyl chloride" and "meaning" in summary and summary["budget"] == 2.
 
 
 # --- import -----------------------------------------------------------------------

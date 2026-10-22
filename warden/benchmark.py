@@ -36,11 +36,14 @@ def make_world(seed, cfg=None, world=None):
     # Total spread per molecule stays prior_sd_eV; template_sd_eV of it is shared by the class.
     st = min(world["template_sd_eV"], cfg["prior_sd_eV"])
     sc = np.sqrt(cfg["prior_sd_eV"] ** 2 - st ** 2)
-    class_mean = {(t, m): rng.normal(cfg["prior_mean_eV"][m], st) for t in PATHWAYS for m in ("SiO2", "SiNx")}
     n0 = world["n_candidates"]
+    template_of = lambda c: "acylation" if c % 3 else "silyl_substitution"
+    # Only templates present in this world draw numbers, so adding a template elsewhere does not reshuffle worlds.
+    templates = sorted({template_of(c) for c in range(n0 + world["library_size"])})
+    class_mean = {(t, m): rng.normal(cfg["prior_mean_eV"][m], st) for t in templates for m in ("SiO2", "SiNx")}
     for c in range(n0 + world["library_size"]):
         cid = f"c{c}" if c < n0 else f"L{c - n0}"
-        template = "acylation" if c % 3 else "silyl_substitution"
+        template = template_of(c)
         candidates[cid] = {"id": cid, "name": cid, "template": template}
         mu = {m: rng.normal(class_mean[(template, m)], sc) for m in ("SiO2", "SiNx")}
         for s in sites:
@@ -48,8 +51,10 @@ def make_world(seed, cfg=None, world=None):
             for p in PATHWAYS[template]:
                 truth[(cid, s["label"], p)] = base + rng.normal(0, cfg["pathway_sd_eV"])
     # Cheap-method errors depend on the chemistry: bias per method, surface and template.
+    # Only templates present in this world, so adding a template elsewhere does not reshuffle worlds.
+    templates = sorted({c["template"] for c in candidates.values()})
     bias = {(meth, m, t): rng.normal(0, sd) for meth, sd in world["bias_sd_eV"].items()
-            for m in ("SiO2", "SiNx") for t in PATHWAYS}
+            for m in ("SiO2", "SiNx") for t in templates}
     # Excess barrier per starting orientation; one orientation per leaf finds the true path.
     excess = {}
     for key in truth:

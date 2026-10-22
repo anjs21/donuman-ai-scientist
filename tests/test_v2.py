@@ -79,6 +79,30 @@ def test_fake_evidence_quote_rejected():
         validate_candidate(candidate, {'ev':{'text':'actual source'}}, True)
 
 
+def test_trivial_evidence_quote_rejected():
+    source = {'ev':{'text':'Aminosilanes react with surface silanols at low temperature.'}}
+    candidate = {**SEEDS[0], 'hypothesis':'h', 'falsification':'f', 'evidence':[{'id':'ev','quote':'a'}]}
+    with pytest.raises(ValueError, match='at least'):
+        validate_candidate(candidate, source, True)
+    candidate['evidence'] = [{'id':'ev','quote':'Aminosilanes react with surface silanols'}]
+    assert validate_candidate(candidate, source, True)['id']
+
+
+def test_planner_sees_newest_evidence(tmp_path):
+    from warden.campaign import context, EVIDENCE_ITEMS
+    store = Store(tmp_path/'c.sqlite')
+    ids = [store.evidence(f'record {i}', f'source {i}') for i in range(EVIDENCE_ITEMS + 18)]
+    shown = [e['id'] for e in context(store, {'step':0}, [])['evidence']]
+    assert shown == ids[::-1][:EVIDENCE_ITEMS]
+
+
+def test_planner_refuses_prompt_larger_than_context():
+    from warden.planner import Ollama
+    planner = Ollama({'host':'http://127.0.0.1:9', 'model':'mock', 'num_ctx':1000})
+    with pytest.raises(ValueError, match='num_ctx'):
+        planner.plan({'evidence':['x' * 5000]})
+
+
 @pytest.mark.parametrize('target', [[0,0,-1], [0,0,1], [1,2,3]])
 def test_rotation_preserves_handedness(target):
     target = np.array(target, dtype=float); target /= np.linalg.norm(target)
@@ -261,7 +285,7 @@ def test_campaign_context_shows_the_most_recent_evidence(tmp_path):
     ids = [store.evidence(f"record {i}", {"i": i}) for i in range(15)]
     store.put("evidence", ids[0], {**store.get("evidence", ids[0])})   # a rewrite counts as recent
     shown = [e["id"] for e in context(store, {}, [])["evidence"]]
-    assert shown == ids[4:] + [ids[0]]
+    assert shown == [ids[0]] + ids[4:][::-1]                           # newest first
     store.close()
 
 
@@ -283,7 +307,7 @@ def test_critic_sees_computed_results_and_agent_ranking(tmp_path):
         def critique(self, action, ctx):
             seen.update(ctx); return {'approve': False, 'reason': 'captured'}
     s = Store(tmp_path/'db'); s.evidence(DEMO_QUOTE, 'fixture', 'synthetic_demo')
-    s.put('decide_summary', 'latest', {'pick': 'x', 'scores_decades': {'x': -2.0}})
+    s.put('decision', 'latest', {'pick': 'x', 'scores': {'x': -2.0}})
     run(s, Capture(), lambda *a: pytest.fail('should not compute'), {'campaign': {'max_steps': 1}}, mode='synthetic_demo')
     assert {'results', 'kinetics', 'agent_ranking'} <= set(seen)
     assert seen['agent_ranking']['pick'] == 'x'

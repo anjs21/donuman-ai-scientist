@@ -275,9 +275,21 @@ def build_tools(session: OrchestratorSession,
 # The loop
 # --------------------------------------------------------------------------
 
+def _pipeline_enabled() -> bool:
+    """False while run_pipeline.py carries the WARDEN v2 'legacy entrypoint disabled' stop."""
+    with open(os.path.join(REPO_ROOT, "run_pipeline.py"), encoding="utf-8") as fh:
+        return "Legacy entrypoint disabled" not in fh.read()
+
+
 def run_agent(model: str, goal: str, surface_dir: Optional[str] = None,
               max_steps: int = MAX_STEPS_DEFAULT,
               max_runs: int = MAX_RUNS_DEFAULT) -> Iterator[Dict[str, Any]]:
+    if not _pipeline_enabled():
+        # Every run_screen would exit immediately yet still spend a run of the budget.
+        yield {"type": "error", "step": 0, "message":
+               "run_pipeline.py is disabled in favour of `python -m warden campaign` "
+               "(see RUN_ORDER.md); the orchestrator has nothing to run."}
+        return
     try:
         session = OrchestratorSession(surface_dir=surface_dir, max_runs=max_runs)
     except Exception as e:

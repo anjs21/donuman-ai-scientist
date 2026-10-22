@@ -178,6 +178,48 @@ def test_downhill_band_without_rise_is_barrierless_not_failed():
     # Not converged is still a failure, whatever the profile looks like.
     assert kin.classify([0., -.02, -.10, -.15, -.40, -.5], False, False, {})["status"] == "neb_not_converged"
 
+def test_reclassify_rebases_binding_on_the_new_best_attempt():
+    # E_substrate + E_molecule = -99.5, so attempt 0's stored binding is -100 + 99.5 = -0.5.
+    # Uphill band under the new min_barrier_eV: unresolved (a downhill one would be barrierless and win).
+    first = {"status": "valid", "Ea_eV": .3, "profile_eV": [0., .3, .1, .5], "precomplex_shift_eV": 0.,
+             "e_reactant_complex_eV": -100.}
+    second = {"status": "valid", "Ea_eV": .6, "profile_eV": [0., -.4, .2, -.6], "precomplex_shift_eV": -.4,
+              "e_reactant_complex_eV": -101.}
+    record = {"sites": [{"material": "SiNx", "label": "ngs", "population": 1, "status": "valid", "Ea_eV": .3,
+                         "precomplex_binding_eV": -.5, "attempts": [first, second]}]}
+    site = kin.reclassify(record, {"min_barrier_eV": .35})["sites"][0]
+    assert site["Ea_eV"] == pytest.approx(.6)
+    assert site["precomplex_binding_eV"] == pytest.approx(-101. - .4 + 99.5)
+
+
+def test_consensus_keeps_gas_and_slab_records_of_one_method():
+    gas = {**_record(1.5, 0.8), "sites_source": "gas"}
+    slab = {**_record(0.8, 1.5), "sites_source": "manifest"}
+    for order in ([gas, slab], [slab, gas]):
+        merged = consensus(order)
+        assert merged["sites_source"] == "manifest"
+        assert set(merged["methods"]) == {"xtb", "xtb:gas"}
+        assert merged["direction_agreement"] is False
+
+
+def test_decide_executor_gets_engine_settings_for_mace(tmp_path, monkeypatch):
+    import json
+    from warden import __main__ as cli, decide as dc
+    seen = {}
+    class Executor:
+        def __init__(self, sites, config, *_):
+            seen.update(config)
+    monkeypatch.setattr(dc, "LiveExecutor", Executor)
+    monkeypatch.setattr(dc, "run", lambda *a, **k: {"trace": [], "spent": 0., "scores": {}, "pcs": 0.,
+                                                    "pick": None, "methods": [], "failures": []})
+    model = tmp_path / "mace.model"; model.write_bytes(b"x")
+    config = json.loads((ROOT / "config/v3.json").read_text())
+    config["engine"]["model_path"] = str(model)
+    (tmp_path / "v3.json").write_text(json.dumps(config))
+    assert cli.main(["decide", "--db", str(tmp_path / "db.sqlite"), "--config", str(tmp_path / "v3.json"),
+                     "--methods", "mace", "--out", str(tmp_path / "out")]) == 0
+    assert seen["model_path"] == str(model) and seen["n_images"] == config["kinetics"]["n_images"]
+
 
 def test_reclassify_updates_stored_record_without_recomputing():
     attempt = {"status": "valid", "Ea_eV": -.02, "profile_eV": [0., -.02, -.10, -.15, -.40, -.5],
